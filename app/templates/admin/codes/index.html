@@ -1,0 +1,691 @@
+{% extends "base.html" %}
+
+{% block title %}兑换码管理 - GPT Team 管理系统{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>兑换码管理</h2>
+</div>
+
+<!-- 统计卡片 -->
+<div class="stats-container">
+    <div class="stat-card">
+        <div class="stat-icon">🎫</div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">兑换码总数</div>
+        </div>
+    </div>
+    <div class="stat-card stat-success">
+        <div class="stat-icon">✅</div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.unused }}</div>
+            <div class="stat-label">未使用</div>
+        </div>
+    </div>
+    <div class="stat-card stat-info">
+        <div class="stat-icon">📝</div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.used }}</div>
+            <div class="stat-label">已使用</div>
+        </div>
+    </div>
+    <div class="stat-card stat-danger">
+        <div class="stat-icon">⏰</div>
+        <div class="stat-content">
+            <div class="stat-value">{{ stats.expired }}</div>
+            <div class="stat-label">已过期</div>
+        </div>
+    </div>
+</div>
+
+<!-- 操作栏 -->
+<div class="content-section">
+    <div class="section-header">
+        <div class="header-group">
+            <div class="filter-tabs">
+                <button onclick="filterByStatus('all')" class="filter-tab active" id="filter-all">全部</button>
+                <button onclick="filterByStatus('unused')" class="filter-tab" id="filter-unused">未使用</button>
+                <button onclick="filterByStatus('used')" class="filter-tab" id="filter-used">已使用</button>
+                <button onclick="filterByStatus('expired')" class="filter-tab" id="filter-expired">已过期</button>
+            </div>
+
+            <form action="/admin/codes" method="get" class="search-form">
+                <div class="input-group-clean">
+                    <i data-lucide="search" style="width: 14px; height: 14px;"></i>
+                    <input type="text" name="search" value="{{ search or '' }}" placeholder="搜索兑换码..."
+                        style="width: 180px;">
+                    {% if search %}
+                    <a href="/admin/codes" title="清除搜索">
+                        <i data-lucide="x-circle" style="width: 14px; height: 14px;"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+
+        <div class="header-actions">
+            <div class="dropdown-wrapper">
+                <button class="btn btn-secondary dropdown-toggle" onclick="toggleDropdown('columnToggleDropdown')">
+                    <i data-lucide="columns" style="width: 16px; height: 16px;"></i> 列设置
+                </button>
+                <div id="columnToggleDropdown" class="dropdown-menu">
+                    <!-- Column checkboxes will be generated here -->
+                </div>
+            </div>
+            <button onclick="showModal('generateCodeModal')" class="btn btn-primary">
+                <i data-lucide="plus-circle" style="width: 16px; height: 16px;"></i> 生成兑换码
+            </button>
+            <button onclick="exportCodes()" class="btn btn-secondary">
+                <i data-lucide="download" style="width: 16px; height: 16px;"></i> 导出
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 兑换码列表 -->
+<div class="content-section">
+    {% if codes %}
+    <div class="table-container">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px;">
+                        <input type="checkbox" id="selectAll" onclick="toggleSelectAll(this)"
+                            style="width: auto; margin: 0;">
+                    </th>
+                    <th>兑换码</th>
+                    <th>状态</th>
+                    <th>创建时间</th>
+                    <th>过期时间</th>
+                    <th>使用者邮箱</th>
+                    <th>使用时间</th>
+                    <th>质保</th>
+                    <th>质保时长</th>
+                    <th style="text-align: right;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="codesTableBody">
+                {% for code in codes %}
+                <tr data-status="{{ code.status }}">
+                    <td>
+                        <input type="checkbox" class="code-checkbox" value="{{ code.code }}"
+                            onchange="updateSelectionCount()" style="width: auto; margin: 0;">
+                    </td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <i data-lucide="ticket" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
+                            <code>{{ code.code }}</code>
+                        </div>
+                    </td>
+                    <td>
+                        {% if code.status == 'unused' %}
+                        <span class="status-badge status-active">未使用</span>
+                        {% elif code.status == 'used' %}
+                        <span class="status-badge status-full">已使用</span>
+                        {% elif code.status == 'warranty_active' %}
+                        <span class="status-badge status-info">质保中</span>
+                        {% elif code.status == 'expired' %}
+                        <span class="status-badge status-error">已过期</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ code.created_at }}</td>
+                    <td>{{ code.expires_at if code.expires_at else '永久有效' }}</td>
+                    <td>{{ code.used_by_email if code.used_by_email else '-' }}</td>
+                    <td>{{ code.used_at if code.used_at else '-' }}</td>
+                    <td>
+                        {% if code.has_warranty %}
+                        <span class="status-badge status-info">是</span>
+                        {% else %}
+                        <span class="status-badge" style="background: #f3f4f6; color: #6b7280;">否</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if code.has_warranty %}
+                        <span style="font-size: 0.875rem;">{{ code.warranty_days }} 天</span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right;">
+                        <div class="action-buttons" style="justify-content: flex-end;">
+                            <button onclick="copyCode('{{ code.code }}')"
+                                class="btn btn-sm btn-icon btn-minimal btn-secondary" title="复制">
+                                <i data-lucide="copy" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            <button
+                                onclick="editCode('{{ code.code }}', {{ 'true' if code.has_warranty else 'false' }}, {{ code.warranty_days or 30 }})"
+                                class="btn btn-sm btn-icon btn-minimal btn-info" title="编辑">
+                                <i data-lucide="edit-3" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            {% if code.status == 'unused' %}
+                            <button onclick="deleteCode('{{ code.code }}')"
+                                class="btn btn-sm btn-icon btn-minimal btn-danger" title="删除">
+                                <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- 批量操作栏 -->
+    <div id="bulkActionBar" class="bulk-action-bar" style="display: none;">
+        <div class="bulk-info">
+            已选择 <span id="selectedCount">0</span> 个兑换码
+        </div>
+        <div class="bulk-actions">
+            <button onclick="showBulkEditModal()" class="btn btn-primary">
+                <i data-lucide="edit-3" style="width: 16px; height: 16px;"></i> 批量修改质保
+            </button>
+            <button onclick="deselectAll()" class="btn btn-secondary">取消全选</button>
+        </div>
+    </div>
+
+    <!-- 分页 -->
+    <!-- 分页 -->
+    {% if pagination %}
+    <div class="pagination">
+        <div class="per-page-selector">
+            每页
+            <select class="per-page-select" onchange="changePerPage(this.value)">
+                <option value="20" {% if pagination.per_page==20 %}selected{% endif %}>20</option>
+                <option value="50" {% if pagination.per_page==50 %}selected{% endif %}>50</option>
+                <option value="100" {% if pagination.per_page==100 %}selected{% endif %}>100</option>
+            </select>
+        </div>
+
+        {% if pagination.total_pages > 1 %}
+        {% set search_param = '&search=' + search|urlencode if search else '' %}
+        {% set per_page_param = '&per_page=' + pagination.per_page|string if pagination.per_page != 50 else '' %}
+        {% set base_query = search_param + per_page_param %}
+
+        <div class="pagination-controls">
+            <!-- 首页 -->
+            <a href="?page=1{{ base_query }}"
+                class="btn btn-sm btn-secondary {% if pagination.current_page == 1 %}disabled{% endif %}" title="首页">
+                <i data-lucide="chevrons-left" style="width: 14px; height: 14px;"></i>
+            </a>
+
+            <!-- 上一页 -->
+            {% if pagination.current_page > 1 %}
+            <a href="?page={{ pagination.current_page - 1 }}{{ base_query }}" class="btn btn-sm btn-secondary"
+                title="上一页">
+                <i data-lucide="chevron-left" style="width: 14px; height: 14px;"></i>
+            </a>
+            {% else %}
+            <button class="btn btn-sm btn-secondary" disabled>
+                <i data-lucide="chevron-left" style="width: 14px; height: 14px;"></i>
+            </button>
+            {% endif %}
+
+            <!-- 页码 -->
+            <div class="pagination-numbers">
+                {% set start_page = pagination.current_page - 2 %}
+                {% set end_page = pagination.current_page + 2 %}
+
+                {% if start_page < 1 %} {% set end_page=end_page + (1 - start_page) %} {% set start_page=1 %} {% endif
+                    %} {% if end_page> pagination.total_pages %}
+                    {% set start_page = start_page - (end_page - pagination.total_pages) %}
+                    {% set end_page = pagination.total_pages %}
+                    {% if start_page < 1 %} {% set start_page=1 %} {% endif %} {% endif %} {% if start_page> 1 %}
+                        <a href="?page=1{{ base_query }}" class="page-number">1</a>
+                        {% if start_page > 2 %}
+                        <span class="page-dots">...</span>
+                        {% endif %}
+                        {% endif %}
+
+                        {% for p in range(start_page, end_page + 1) %}
+                        <a href="?page={{ p }}{{ base_query }}"
+                            class="page-number {% if p == pagination.current_page %}active{% endif %}">{{ p }}</a>
+                        {% endfor %}
+
+                        {% if end_page < pagination.total_pages %} {% if end_page < pagination.total_pages - 1 %} <span
+                            class="page-dots">...</span>
+                            {% endif %}
+                            <a href="?page={{ pagination.total_pages }}{{ base_query }}" class="page-number">{{
+                                pagination.total_pages }}</a>
+                            {% endif %}
+            </div>
+
+            <!-- 下一页 -->
+            {% if pagination.current_page < pagination.total_pages %} <a
+                href="?page={{ pagination.current_page + 1 }}{{ base_query }}" class="btn btn-sm btn-secondary"
+                title="下一页">
+                <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i>
+                </a>
+                {% else %}
+                <button class="btn btn-sm btn-secondary" disabled>
+                    <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i>
+                </button>
+                {% endif %}
+
+                <!-- 末页 -->
+                <a href="?page={{ pagination.total_pages }}{{ base_query }}"
+                    class="btn btn-sm btn-secondary {% if pagination.current_page == pagination.total_pages %}disabled{% endif %}"
+                    title="末页">
+                    <i data-lucide="chevrons-right" style="width: 14px; height: 14px;"></i>
+                </a>
+        </div>
+        <span class="pagination-info" style="margin-left: 1rem;">共 {{ pagination.total }} 条</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="empty-state">
+        <i data-lucide="package-open" style="width: 48px; height: 48px; margin-bottom: 1rem; opacity: 0.2;"></i>
+        <p>暂无兑换码数据</p>
+        <button onclick="showModal('generateCodeModal')" class="btn btn-primary">立即生成</button>
+    </div>
+    {% endif %}
+</div>
+
+<!-- 批量编辑兑换码模态框 -->
+<div id="bulkEditCodeModal" class="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>批量修改质保</h3>
+            <button class="modal-close" onclick="hideModal('bulkEditCodeModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="alert alert-info" style="margin-bottom: 1rem;">
+                您正在批量修改 <strong id="bulk-selected-count-display">0</strong> 个兑换码的质保信息。
+            </div>
+            <form id="bulkEditCodeForm" onsubmit="handleBulkEditCode(event)">
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-top: 1rem;">
+                        <input type="checkbox" id="bulk-edit-has-warranty" name="hasWarranty"
+                            style="width: auto; margin: 0;"
+                            onchange="toggleWarrantyDays(this, 'bulk-edit-warranty-days-group')">
+                        <span>质保兑换码 (可重复使用)</span>
+                    </label>
+                </div>
+                <div class="form-group" id="bulk-edit-warranty-days-group" style="display: none;">
+                    <label>质保时长 (天) *</label>
+                    <input type="number" id="bulk-edit-warranty-days" name="warrantyDays" class="form-control"
+                        value="30" min="1" max="3650">
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">保存修改</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 编辑兑换码模态框 -->
+<div id="editCodeModal" class="modal-overlay">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>编辑兑换码</h3>
+            <button class="modal-close" onclick="hideModal('editCodeModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editCodeForm" onsubmit="handleEditCode(event)">
+                <input type="hidden" id="edit-code" name="code">
+                <div class="form-group">
+                    <label>兑换码</label>
+                    <input type="text" id="edit-code-display" class="form-control" readonly
+                        style="background: rgba(0,0,0,0.05);">
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-top: 1rem;">
+                        <input type="checkbox" id="edit-has-warranty" name="hasWarranty" style="width: auto; margin: 0;"
+                            onchange="toggleWarrantyDays(this, 'edit-warranty-days-group')">
+                        <span>质保兑换码 (可重复使用)</span>
+                    </label>
+                </div>
+                <div class="form-group" id="edit-warranty-days-group" style="display: none;">
+                    <label>质保时长 (天) *</label>
+                    <input type="number" id="edit-warranty-days" name="warrantyDays" class="form-control" value="30"
+                        min="1" max="3650">
+                </div>
+                <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">保存修改</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .bulk-action-bar {
+        position: fixed;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        background: white;
+        padding: 1rem 2rem;
+        border-radius: 12px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+        z-index: 100;
+        border: 1px solid var(--border-color);
+        animation: slideUp 0.3s ease-out;
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translate(-50%, 100%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translate(-50%, 0);
+            opacity: 1;
+        }
+    }
+
+    .bulk-info {
+        font-weight: 500;
+        color: var(--text-color);
+    }
+
+    .bulk-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Init Column Toggler
+        initColumnToggler('.data-table', 'codes_list_columns');
+    });
+
+    // Column Toggler Logic & Pagination
+    function initColumnToggler(tableSelector, storageKey) {
+        const table = document.querySelector(tableSelector);
+        if (!table) return;
+
+        const headers = table.querySelectorAll('thead th');
+        const container = document.getElementById('columnToggleDropdown');
+        if (!container) return;
+
+        container.innerHTML = '<div class="dropdown-header">显示/隐藏列</div>';
+
+        // Load saved preferences
+        const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+
+        headers.forEach((th, index) => {
+            const text = th.innerText.trim();
+            if (!text || text === '操作' || th.querySelector('input')) return; // Checkbox column or Action
+
+            const isVisible = !saved.includes(index);
+            if (!isVisible) {
+                th.style.display = 'none';
+                table.querySelectorAll(`tbody tr td:nth-child(${index + 1})`).forEach(td => td.style.display = 'none');
+            }
+
+            const item = document.createElement('label');
+            item.className = 'dropdown-item';
+            item.innerHTML = `
+        <input type="checkbox" ${isVisible ? 'checked' : ''}>
+            <span>${text}</span>
+            `;
+
+            item.querySelector('input').addEventListener('change', (e) => {
+                const checked = e.target.checked;
+                // Toggle header
+                th.style.display = checked ? '' : 'none';
+                // Toggle cells
+                table.querySelectorAll(`tbody tr td:nth-child(${index + 1})`).forEach(td => td.style.display = checked ? '' : 'none');
+
+                // Save to localStorage
+                const currentSaved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+                if (checked) {
+                    const idx = currentSaved.indexOf(index);
+                    if (idx > -1) currentSaved.splice(idx, 1);
+                } else {
+                    if (!currentSaved.includes(index)) currentSaved.push(index);
+                }
+                localStorage.setItem(storageKey, JSON.stringify(currentSaved));
+            });
+
+            container.appendChild(item);
+        });
+    }
+
+    function toggleDropdown(id) {
+        const el = document.getElementById(id);
+        if (el) {
+            el.classList.toggle('show');
+            document.querySelectorAll('.dropdown-menu').forEach(d => {
+                if (d.id !== id) d.classList.remove('show');
+            });
+        }
+    }
+
+    // Close dropdowns
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.dropdown-wrapper') && !e.target.closest('.dropdown-toggle')) {
+            document.querySelectorAll('.dropdown-menu').forEach(d => d.classList.remove('show'));
+        }
+    });
+
+    function changePerPage(val) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('per_page', val);
+        url.searchParams.set('page', 1);
+        window.location.href = url.toString();
+    }
+
+    // 全选/取消全选
+    function toggleSelectAll(checkbox) {
+        const checkboxes = document.querySelectorAll('.code-checkbox');
+        checkboxes.forEach(cb => {
+            // 只选择当前显示的行
+            if (cb.closest('tr').style.display !== 'none') {
+                cb.checked = checkbox.checked;
+            }
+        });
+        updateSelectionCount();
+    }
+
+    // 取消全选
+    function deselectAll() {
+        document.getElementById('selectAll').checked = false;
+        toggleSelectAll(document.getElementById('selectAll'));
+    }
+
+    // 更新选择计数
+    function updateSelectionCount() {
+        const selected = document.querySelectorAll('.code-checkbox:checked');
+        const count = selected.length;
+        document.getElementById('selectedCount').innerText = count;
+
+        const actionBar = document.getElementById('bulkActionBar');
+        if (count > 0) {
+            actionBar.style.display = 'flex';
+        } else {
+            actionBar.style.display = 'none';
+        }
+    }
+
+    // 显示批量编辑弹窗
+    function showBulkEditModal() {
+        const selected = document.querySelectorAll('.code-checkbox:checked');
+        document.getElementById('bulk-selected-count-display').innerText = selected.length;
+        showModal('bulkEditCodeModal');
+    }
+
+    // 处理批量编辑
+    async function handleBulkEditCode(event) {
+        event.preventDefault();
+        const selected = document.querySelectorAll('.code-checkbox:checked');
+        const codes = Array.from(selected).map(cb => cb.value);
+
+        const has_warranty = document.getElementById('bulk-edit-has-warranty').checked;
+        const warranty_days = parseInt(document.getElementById('bulk-edit-warranty-days').value) || 30;
+
+        try {
+            const response = await fetch('/admin/codes/bulk-update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    codes: codes,
+                    has_warranty: has_warranty,
+                    warranty_days: has_warranty ? warranty_days : null
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                showToast('批量更新成功', 'success');
+                hideModal('bulkEditCodeModal');
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                showToast(result.error || '批量更新失败', 'error');
+            }
+        } catch (error) {
+            console.error(error);
+            showToast('网络错误', 'error');
+        }
+    }
+
+    // 当前筛选状态
+    let currentFilter = 'all';
+
+    // 按状态筛选
+    function filterByStatus(status) {
+        currentFilter = status;
+
+        // 更新按钮状态
+        document.querySelectorAll('.filter-tab').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        document.getElementById(`filter-${status}`).classList.add('active');
+
+        // 筛选表格行
+        const rows = document.querySelectorAll('#codesTableBody tr');
+        rows.forEach(row => {
+            const rowStatus = row.getAttribute('data-status');
+            if (status === 'all' || rowStatus === status) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+                // 如果行被隐藏，取消其复选框的选择
+                const cb = row.querySelector('.code-checkbox');
+                if (cb) cb.checked = false;
+            }
+        });
+        updateSelectionCount();
+    }
+
+    // 删除兑换码
+    async function deleteCode(code) {
+        if (!confirm(`确定要删除兑换码 ${code} 吗?`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/admin/codes/${encodeURIComponent(code)}/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                showToast('删除成功', 'success');
+                // 刷新页面
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showToast(result.error || '删除失败', 'error');
+            }
+        } catch (error) {
+            showToast('网络错误', 'error');
+        }
+    }
+
+
+    // 导出兑换码
+    async function exportCodes() {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const search = urlParams.get('search') || '';
+            const exportUrl = `/admin/codes/export${search ? '?search=' + encodeURIComponent(search) : ''}`;
+
+            const response = await fetch(exportUrl);
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `redemption_codes_${new Date().getTime()}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast('导出成功', 'success');
+            } else {
+                showToast('导出失败', 'error');
+            }
+        } catch (error) {
+            showToast('网络错误', 'error');
+        }
+    }
+
+    // 编辑兑换码
+    function editCode(code, hasWarranty, warrantyDays) {
+        document.getElementById('edit-code').value = code;
+        document.getElementById('edit-code-display').value = code;
+
+        const hasWarrantyCheckbox = document.getElementById('edit-has-warranty');
+        hasWarrantyCheckbox.checked = hasWarranty;
+
+        const warrantyDaysInput = document.getElementById('edit-warranty-days');
+        warrantyDaysInput.value = warrantyDays || 30;
+
+        // 触发显示/隐藏
+        toggleWarrantyDays(hasWarrantyCheckbox, 'edit-warranty-days-group');
+
+        showModal('editCodeModal');
+    }
+
+    async function handleEditCode(event) {
+        event.preventDefault();
+        const code = document.getElementById('edit-code').value;
+        const has_warranty = document.getElementById('edit-has-warranty').checked;
+        const warranty_days = parseInt(document.getElementById('edit-warranty-days').value) || 30;
+
+        try {
+            const response = await fetch(`/admin/codes/${encodeURIComponent(code)}/update`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    has_warranty,
+                    warranty_days: has_warranty ? warranty_days : null
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                showToast('更新成功', 'success');
+                hideModal('editCodeModal');
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                showToast(result.error || '更新失败', 'error');
+            }
+        } catch (error) {
+            showToast('网络错误', 'error');
+        }
+    }
+</script>
+{% endblock %}
