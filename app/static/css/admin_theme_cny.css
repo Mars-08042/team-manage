@@ -119,7 +119,8 @@
     box-shadow: 0 4px 6px rgba(192, 57, 43, 0.4);
 }
 
-[data-theme="cny"] .btn-minimal {
+/* Scoped to Navbar only */
+[data-theme="cny"] .navbar .btn-minimal {
     color: rgba(255, 255, 255, 0.9);
 }
 
@@ -151,6 +152,31 @@
     background-color: #eafaf1;
     color: #2ecc71;
     border: 1px solid #abebc6;
+}
+
+/* Action Button Visibility Fix */
+[data-theme="cny"] .action-buttons .btn-minimal {
+    color: inherit;
+}
+
+[data-theme="cny"] .action-buttons .btn-info {
+    color: #3498db;
+}
+
+[data-theme="cny"] .action-buttons .btn-primary {
+    color: #c0392b;
+}
+
+[data-theme="cny"] .action-buttons .btn-secondary {
+    color: #7f8c8d;
+}
+
+[data-theme="cny"] .action-buttons .btn-danger {
+    color: #e74c3c;
+}
+
+[data-theme="cny"] .action-buttons .btn-minimal:hover {
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
 /* Couplet Styles */
