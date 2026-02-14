@@ -9,12 +9,25 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     {% block extra_css %}{% endblock %}
-    {% if current_theme == 'cny' %}
     <link rel="stylesheet" href="{{ url_for('static', path='/css/admin_theme_cny.css') }}">
-    {% endif %}
 </head>
 
-<body class="bg-gray-50 text-slate-900 theme-{{ current_theme }}">
+<body class="bg-gray-50 text-slate-900">
+    <!-- Couplet Containers -->
+    <div id="coupletLeft" class="couplet-container couplet-left">
+        <div class="couplet-top"></div>
+        <div class="couplet-body">
+            <div class="couplet-text">春风入喜财入户</div>
+        </div>
+        <div class="couplet-bottom"></div>
+    </div>
+    <div id="coupletRight" class="couplet-container couplet-right">
+        <div class="couplet-top"></div>
+        <div class="couplet-body">
+            <div class="couplet-text">岁月更新福满门</div>
+        </div>
+        <div class="couplet-bottom"></div>
+    </div>
     {% if user %}
     <!-- 导航栏 -->
     <nav class="navbar">
@@ -29,24 +42,12 @@
             </div>
             <div class="navbar-menu">
                 <!-- Theme Switcher -->
-                <div class="dropdown-wrapper" style="margin-right: 15px;">
-                    <button class="btn btn-secondary dropdown-toggle" onclick="toggleDropdown('themeDropdown')"
-                        style="padding: 0.5rem 1rem; font-size: 0.9rem;">
-                        <i data-lucide="palette" style="width: 16px; height: 16px;"></i> {{ '新年' if current_theme ==
-                        'cny' else '默认' }}
-                    </button>
-                    <div id="themeDropdown" class="dropdown-menu">
-                        <div class="dropdown-header">选择主题</div>
-                        <label class="dropdown-item" onclick="updateTheme('default')">
-                            <input type="radio" name="theme" {{ 'checked' if current_theme !='cny' else '' }}>
-                            <span>默认主题</span>
-                        </label>
-                        <label class="dropdown-item" onclick="updateTheme('cny')">
-                            <input type="radio" name="theme" {{ 'checked' if current_theme=='cny' else '' }}>
-                            <span>新年主题</span>
-                        </label>
-                    </div>
-                </div>
+                <!-- Theme Switcher Button -->
+                <button id="themeToggleBtn" class="btn btn-minimal" style="margin-right: 15px; padding: 0.5rem 1rem;">
+                    <i data-lucide="flower-2" style="width: 16px; height: 16px; margin-right: 0.5rem;"
+                        class="theme-icon"></i>
+                    <span class="theme-text">新春主题</span>
+                </button>
 
                 <span class="navbar-user">管理员</span>
                 <button onclick="logout()" class="btn btn-secondary">登出</button>
@@ -415,6 +416,7 @@
             }
         }
     </script>
+    <script src="{{ url_for('static', path='/js/admin_theme.js') }}"></script>
     {% block extra_js %}{% endblock %}
 </body>
 

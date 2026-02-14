@@ -1,76 +1,287 @@
-/* Admin CNY Theme Variables Override */
-:root {
-    --primary: #bc1f1f;
-    /* New Year Red */
-    --primary-hover: #9f1818;
-    --primary-glow: rgba(188, 31, 31, 0.34);
+/* Admin CNY Theme - Replicated from localhost:8008 */
 
-    --bg-main: #fdf6e7;
-    /* Warm Paper Background */
-    --bg-surface: #fffaf0;
-    /* Slightly lighter surface */
-    --bg-glass: rgba(255, 251, 245, 0.72);
-    --bg-glass-heavy: rgba(255, 251, 241, 0.92);
-
-    --text-main: #311a13;
-    /* Dark Brown Text */
-    --text-dim: #614130;
-    --text-muted: #8a6a53;
-
-    --border-glass: rgba(188, 31, 31, 0.16);
-    --border-highlight: rgba(188, 31, 31, 0.28);
-
-    --success: #157347;
-    /* Keep success green but slightly warmer if needed, standard is fine */
-    --danger: #b42318;
+/* Base variables override for CNY theme */
+[data-theme="cny"] {
+    --primary: #c0392b;
+    --primary-hover: #e74c3c;
+    --bg-main: #fffbf0;
+    --text-main: #2c3e50;
+    --sidebar-bg: #fffbf0;
+    --card-bg: #ffffff;
+    --border-color: #e6b0aa;
 }
 
-/* Adjust navbar for CNY theme */
-.navbar {
-    background-color: var(--primary);
-    border-bottom: 1px solid rgba(255, 215, 0, 0.3);
-    /* Gold border */
+/* Navbar specific overrides */
+[data-theme="cny"] .navbar {
+    background: linear-gradient(to right, #c0392b, #e74c3c);
+    border-bottom: 2px solid #f1c40f;
     box-shadow: 0 4px 12px rgba(188, 31, 31, 0.2);
 }
 
-.navbar-user {
-    color: #ffd700 !important;
-    /* Gold text for user */
+[data-theme="cny"] .navbar-brand h1 {
+    color: #f1c40f;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    font-weight: 800;
 }
 
-/* Sidebar active item */
-.sidebar-menu .menu-item.active {
-    background: linear-gradient(90deg, rgba(188, 31, 31, 0.1), transparent);
-    border-left-color: var(--primary);
+[data-theme="cny"] .navbar-menu {
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    /* Unified gap */
 }
 
-.sidebar-menu .menu-item.active .menu-icon,
-.sidebar-menu .menu-item.active .menu-text {
-    color: var(--primary);
+/* Unified Navbar Button/Item Styles */
+[data-theme="cny"] .navbar-menu>* {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    /* Fixed height for uniformity */
+    padding: 0 15px !important;
+    /* Fixed padding */
+    border-radius: 18px;
+    /* Rounded pill shape */
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0 !important;
+    /* Reset margins to use gap */
+    transition: all 0.2s ease;
 }
 
-/* Buttons */
-.btn-primary {
-    background: linear-gradient(135deg, #bc1f1f, #d94f4f);
-    border: 1px solid rgba(255, 215, 0, 0.4);
+/* 1. Theme Toggle Button (Minimal style in base, but we override here) */
+[data-theme="cny"] #themeToggleBtn {
+    background: rgba(255, 255, 255, 0.15);
+    color: #f1c40f;
+    /* Gold text */
+    border: 1px solid rgba(241, 196, 15, 0.3);
 }
 
-.btn-secondary {
-    background-color: rgba(255, 255, 255, 0.5);
-    border-color: rgba(188, 31, 31, 0.2);
-    color: var(--text-main);
+[data-theme="cny"] #themeToggleBtn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    border-color: #f1c40f;
+    transform: translateY(-1px);
 }
 
-/* Card headers */
-.card h2,
-.modal-header h3 {
-    color: var(--primary);
-    border-left: 4px solid var(--primary);
+/* 2. Admin User Badge */
+[data-theme="cny"] .navbar-user {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* 3. Logout Button */
+[data-theme="cny"] .navbar-menu .btn-secondary {
+    background: #fff;
+    color: #c0392b;
+    border: 1px solid #fff;
+}
+
+[data-theme="cny"] .navbar-menu .btn-secondary:hover {
+    background: #fdedec;
+    color: #a93226;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Sidebar overrides */
+[data-theme="cny"] .sidebar {
+    background-color: #fffbf0;
+    border-right: 1px solid #e6b0aa;
+    /* Subtle lattice pattern background */
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e6b0aa' fill-opacity='0.1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+[data-theme="cny"] .menu-item.active a {
+    background-color: rgba(241, 196, 15, 0.2);
+    color: #c0392b;
+    border-right: 3px solid #c0392b;
+    font-weight: bold;
+}
+
+[data-theme="cny"] .menu-item a:hover {
+    background-color: rgba(192, 57, 43, 0.05);
+    color: #c0392b;
+}
+
+/* Button overrides (General) */
+[data-theme="cny"] .btn-primary {
+    background: linear-gradient(135deg, #c0392b, #e74c3c);
+    border: 1px solid #cb4335;
+    box-shadow: 0 2px 4px rgba(192, 57, 43, 0.3);
+    color: #fff;
+}
+
+[data-theme="cny"] .btn-primary:hover {
+    background: linear-gradient(135deg, #cb4335, #ec7063);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(192, 57, 43, 0.4);
+}
+
+[data-theme="cny"] .btn-minimal {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Card overrides */
+[data-theme="cny"] .stat-card {
+    border: 1px solid #fadbd8;
+    background: #fff;
+}
+
+[data-theme="cny"] .stat-card:hover {
+    box-shadow: 0 4px 12px rgba(192, 57, 43, 0.1);
+    border-color: #f1948a;
+}
+
+[data-theme="cny"] .section-header h3 {
+    border-left: 4px solid #c0392b;
     padding-left: 12px;
+    color: #2c3e50;
 }
 
-/* Table headers */
-.data-table th {
-    background-color: rgba(188, 31, 31, 0.05);
-    color: var(--text-dim);
+/* Table overrides */
+[data-theme="cny"] .data-table th {
+    background-color: #fdedec;
+    color: #922b21;
+    border-bottom: 2px solid #e6b0aa;
+}
+
+[data-theme="cny"] .status-badge.status-active {
+    background-color: #eafaf1;
+    color: #2ecc71;
+    border: 1px solid #abebc6;
+}
+
+/* Couplet Styles */
+.couplet-container {
+    position: fixed;
+    top: 15%;
+    width: 60px;
+    z-index: 1000;
+    perspective: 1000px;
+    display: none;
+    /* Default hidden */
+}
+
+/* Only show in CNY theme */
+[data-theme="cny"] .couplet-container {
+    display: block;
+}
+
+.couplet-left {
+    left: 20px;
+}
+
+.couplet-right {
+    right: 20px;
+}
+
+.couplet-body {
+    background: #c0392b;
+    border: 2px solid #f1c40f;
+    padding: 15px 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    transition: transform 0.8s;
+    transform-style: preserve-3d;
+    position: relative;
+}
+
+/* Flip animation class */
+.couplet-container.flipping .couplet-body {
+    transform: rotateY(90deg);
+}
+
+.couplet-text {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    font-family: "Ma Shan Zheng", "Kaiti", "楷体", serif;
+    font-size: 24px;
+    color: #f1c40f;
+    font-weight: bold;
+    letter-spacing: 4px;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+    min-height: 200px;
+    text-align: center;
+}
+
+.couplet-top {
+    width: 100%;
+    height: 20px;
+    background: #a93226;
+    margin-bottom: -2px;
+    border-radius: 5px 5px 0 0;
+    border: 1px solid #f1c40f;
+    border-bottom: none;
+}
+
+.couplet-bottom {
+    width: 100%;
+    height: 20px;
+    background: #a93226;
+    margin-top: -2px;
+    border-radius: 0 0 5px 5px;
+    border: 1px solid #f1c40f;
+    border-top: none;
+}
+
+/* Lantern Styles */
+.lantern {
+    position: absolute;
+    bottom: -60px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 40px;
+    height: 35px;
+}
+
+.lantern-line {
+    width: 2px;
+    height: 10px;
+    background: #f1c40f;
+    margin: 0 auto;
+}
+
+.lantern-body {
+    width: 100%;
+    height: 100%;
+    background: #e74c3c;
+    border-radius: 10px;
+    border: 1px solid #f1c40f;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 0 10px rgba(231, 76, 60, 0.6);
+}
+
+.lantern-text {
+    font-size: 12px;
+    color: #f1c40f;
+    font-weight: bold;
+}
+
+.lantern-tassel {
+    width: 4px;
+    height: 15px;
+    background: #f1c40f;
+    margin: 0 auto;
+    border-radius: 0 0 2px 2px;
+}
+
+/* Animations */
+@keyframes sway {
+
+    0%,
+    100% {
+        transform: translateX(-50%) rotate(-5deg);
+    }
+
+    50% {
+        transform: translateX(-50%) rotate(5deg);
+    }
+}
+
+.lantern {
+    animation: sway 3s ease-in-out infinite;
+    transform-origin: top center;
 }
