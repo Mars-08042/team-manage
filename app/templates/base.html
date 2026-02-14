@@ -9,9 +9,12 @@
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     {% block extra_css %}{% endblock %}
+    {% if current_theme == 'cny' %}
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/admin_theme_cny.css') }}">
+    {% endif %}
 </head>
 
-<body class="bg-gray-50 text-slate-900">
+<body class="bg-gray-50 text-slate-900 theme-{{ current_theme }}">
     {% if user %}
     <!-- 导航栏 -->
     <nav class="navbar">
@@ -25,6 +28,26 @@
                 </div>
             </div>
             <div class="navbar-menu">
+                <!-- Theme Switcher -->
+                <div class="dropdown-wrapper" style="margin-right: 15px;">
+                    <button class="btn btn-secondary dropdown-toggle" onclick="toggleDropdown('themeDropdown')"
+                        style="padding: 0.5rem 1rem; font-size: 0.9rem;">
+                        <i data-lucide="palette" style="width: 16px; height: 16px;"></i> {{ '新年' if current_theme ==
+                        'cny' else '默认' }}
+                    </button>
+                    <div id="themeDropdown" class="dropdown-menu">
+                        <div class="dropdown-header">选择主题</div>
+                        <label class="dropdown-item" onclick="updateTheme('default')">
+                            <input type="radio" name="theme" {{ 'checked' if current_theme !='cny' else '' }}>
+                            <span>默认主题</span>
+                        </label>
+                        <label class="dropdown-item" onclick="updateTheme('cny')">
+                            <input type="radio" name="theme" {{ 'checked' if current_theme=='cny' else '' }}>
+                            <span>新年主题</span>
+                        </label>
+                    </div>
+                </div>
+
                 <span class="navbar-user">管理员</span>
                 <button onclick="logout()" class="btn btn-secondary">登出</button>
             </div>
@@ -349,6 +372,48 @@
     <script src="{{ url_for('static', path='/js/main.js') }}"></script>
     <script>
         lucide.createIcons();
+
+        // Theme Switcher Logic
+        function toggleDropdown(id) {
+            const dropdown = document.getElementById(id);
+            if (dropdown) {
+                dropdown.classList.toggle('show');
+            }
+        }
+
+        // Close dropdown when clicking outside
+        window.onclick = function (event) {
+            if (!event.target.matches('.dropdown-toggle') && !event.target.closest('.dropdown-toggle')) {
+                const dropdowns = document.getElementsByClassName("dropdown-menu");
+                for (let i = 0; i < dropdowns.length; i++) {
+                    const openDropdown = dropdowns[i];
+                    if (openDropdown.classList.contains('show')) {
+                        openDropdown.classList.remove('show');
+                    }
+                }
+            }
+        }
+
+        async function updateTheme(theme) {
+            try {
+                const response = await fetch('/admin/settings/theme', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ theme: theme })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    showToast('主题更新成功', 'success');
+                    setTimeout(() => location.reload(), 500);
+                } else {
+                    showToast('更新失败: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showToast('网络错误', 'error');
+            }
+        }
     </script>
     {% block extra_js %}{% endblock %}
 </body>

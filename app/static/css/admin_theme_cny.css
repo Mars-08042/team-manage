@@ -1,0 +1,76 @@
+/* Admin CNY Theme Variables Override */
+:root {
+    --primary: #bc1f1f;
+    /* New Year Red */
+    --primary-hover: #9f1818;
+    --primary-glow: rgba(188, 31, 31, 0.34);
+
+    --bg-main: #fdf6e7;
+    /* Warm Paper Background */
+    --bg-surface: #fffaf0;
+    /* Slightly lighter surface */
+    --bg-glass: rgba(255, 251, 245, 0.72);
+    --bg-glass-heavy: rgba(255, 251, 241, 0.92);
+
+    --text-main: #311a13;
+    /* Dark Brown Text */
+    --text-dim: #614130;
+    --text-muted: #8a6a53;
+
+    --border-glass: rgba(188, 31, 31, 0.16);
+    --border-highlight: rgba(188, 31, 31, 0.28);
+
+    --success: #157347;
+    /* Keep success green but slightly warmer if needed, standard is fine */
+    --danger: #b42318;
+}
+
+/* Adjust navbar for CNY theme */
+.navbar {
+    background-color: var(--primary);
+    border-bottom: 1px solid rgba(255, 215, 0, 0.3);
+    /* Gold border */
+    box-shadow: 0 4px 12px rgba(188, 31, 31, 0.2);
+}
+
+.navbar-user {
+    color: #ffd700 !important;
+    /* Gold text for user */
+}
+
+/* Sidebar active item */
+.sidebar-menu .menu-item.active {
+    background: linear-gradient(90deg, rgba(188, 31, 31, 0.1), transparent);
+    border-left-color: var(--primary);
+}
+
+.sidebar-menu .menu-item.active .menu-icon,
+.sidebar-menu .menu-item.active .menu-text {
+    color: var(--primary);
+}
+
+/* Buttons */
+.btn-primary {
+    background: linear-gradient(135deg, #bc1f1f, #d94f4f);
+    border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+.btn-secondary {
+    background-color: rgba(255, 255, 255, 0.5);
+    border-color: rgba(188, 31, 31, 0.2);
+    color: var(--text-main);
+}
+
+/* Card headers */
+.card h2,
+.modal-header h3 {
+    color: var(--primary);
+    border-left: 4px solid var(--primary);
+    padding-left: 12px;
+}
+
+/* Table headers */
+.data-table th {
+    background-color: rgba(188, 31, 31, 0.05);
+    color: var(--text-dim);
+}

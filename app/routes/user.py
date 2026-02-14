@@ -37,14 +37,18 @@ async def redeem_page(
         
         team_service = TeamService()
         remaining_spots = await team_service.get_total_available_spots(db)
+        
+        from app.services.system_settings import system_settings_service
+        current_theme = await system_settings_service.get_setting("theme", "default")
 
-        logger.info(f"用户访问兑换页面，剩余车位: {remaining_spots}")
+        logger.info(f"用户访问兑换页面，剩余车位: {remaining_spots}, 当前主题: {current_theme}")
 
         return templates.TemplateResponse(
             "user/redeem.html",
             {
                 "request": request,
-                "remaining_spots": remaining_spots
+                "remaining_spots": remaining_spots,
+                "theme": current_theme
             }
         )
 

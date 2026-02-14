@@ -4,7 +4,7 @@
 """
 import logging
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,6 +14,7 @@ from app.database import get_db
 from app.dependencies.auth import require_admin
 from app.services.team import TeamService
 from app.services.redemption import RedemptionService
+from app.services.system_settings import system_settings_service
 from app.utils.time_utils import get_now
 
 logger = logging.getLogger(__name__)
@@ -98,6 +99,10 @@ async def admin_dashboard(
     """
     try:
         from app.main import templates
+        
+        # 获取当前主题
+        current_theme = await system_settings_service.get_setting("theme", "default")
+
         logger.info(f"管理员访问控制台, search={search}, page={page}, per_page={per_page}")
 
         # 设置每页数量
@@ -135,7 +140,8 @@ async def admin_dashboard(
                     "total_pages": teams_result.get("total_pages", 1),
                     "total": teams_result.get("total", 0),
                     "per_page": per_page
-                }
+                },
+                "current_theme": current_theme
             }
         )
     except Exception as e:
@@ -535,6 +541,9 @@ async def codes_list_page(
     try:
         from app.main import templates
 
+        # 获取当前主题
+        current_theme = await system_settings_service.get_setting("theme", "default")
+
         logger.info(f"管理员访问兑换码列表页面, search={search}, per_page={per_page}")
 
         # 获取兑换码 (分页)
@@ -585,7 +594,8 @@ async def codes_list_page(
                     "total_pages": total_pages,
                     "total": total_codes,
                     "per_page": per_page
-                }
+                },
+                "current_theme": current_theme
             }
         )
 
@@ -1121,6 +1131,9 @@ async def settings_page(
 
         logger.info("管理员访问系统设置页面")
 
+        # 获取当前主题
+        current_theme = await system_settings_service.get_setting("theme", "default")
+
         # 获取当前配置
         proxy_config = await settings_service.get_proxy_config(db)
         log_level = await settings_service.get_log_level(db)
@@ -1133,7 +1146,10 @@ async def settings_page(
                 "active_page": "settings",
                 "proxy_enabled": proxy_config["enabled"],
                 "proxy": proxy_config["proxy"],
-                "log_level": log_level
+                "proxy_enabled": proxy_config["enabled"],
+                "proxy": proxy_config["proxy"],
+                "log_level": log_level,
+                "current_theme": current_theme
             }
         )
 
@@ -1258,3 +1274,19 @@ async def update_log_level(
         )
 
 
+@router.post("/settings/theme")
+async def update_theme(
+    request: Request,
+    theme: str = Body(..., embed=True),
+    current_user: dict = Depends(require_admin)
+):
+    """更新全站主题"""
+    try:
+        await system_settings_service.set_setting("theme", theme)
+        return {"success": True, "theme": theme}
+    except Exception as e:
+        logger.error(f"更新主题失败: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(e)}
+        )
