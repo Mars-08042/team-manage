@@ -933,6 +933,9 @@ async def records_page(
         from app.main import templates
         from datetime import datetime, timedelta
         import math
+        
+        # 获取当前主题
+        current_theme = await system_settings_service.get_setting("theme", "default")
 
         # 解析参数
         try:
@@ -1042,6 +1045,7 @@ async def records_page(
                 "request": request,
                 "user": current_user,
                 "active_page": "records",
+                "current_theme": current_theme,
                 "records": paginated_records,
                 "stats": stats,
                 "filters": {

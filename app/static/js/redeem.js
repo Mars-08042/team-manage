@@ -52,10 +52,14 @@ function hasTabLayout() {
 function setActiveTab(tab) {
     const tabRedeem = document.getElementById('tab-redeem');
     const tabWarranty = document.getElementById('tab-warranty');
+    const switcher = document.querySelector('.tab-switcher');
     if (!tabRedeem || !tabWarranty) return;
 
     tabRedeem.classList.toggle('active', tab === 'redeem');
     tabWarranty.classList.toggle('active', tab === 'warranty');
+    if (switcher) {
+        switcher.classList.toggle('warranty-active', tab === 'warranty');
+    }
 }
 
 function switchTab(tab) {
