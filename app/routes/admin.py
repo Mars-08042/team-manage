@@ -1141,6 +1141,7 @@ async def settings_page(
         # 获取当前配置
         proxy_config = await settings_service.get_proxy_config(db)
         log_level = await settings_service.get_log_level(db)
+        cf_clearance_status = await settings_service.get_cf_clearance_status(db)
 
         return templates.TemplateResponse(
             "admin/settings/index.html",
@@ -1153,6 +1154,8 @@ async def settings_page(
                 "proxy_enabled": proxy_config["enabled"],
                 "proxy": proxy_config["proxy"],
                 "log_level": log_level,
+                "cf_clearance_configured": cf_clearance_status.get("configured", False),
+                "cf_clearance_updated_at": cf_clearance_status.get("updated_at"),
                 "current_theme": current_theme
             }
         )

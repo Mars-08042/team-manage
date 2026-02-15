@@ -2,7 +2,7 @@
 系统设置服务
 管理系统配置的读取、更新和缓存
 """
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Setting
@@ -180,6 +180,62 @@ class SettingsService:
         }
 
         return await self.update_settings(session, settings)
+
+    async def get_cf_clearance(self, session: AsyncSession) -> Optional[str]:
+        """
+        获取 Cloudflare 通行 Cookie
+
+        Args:
+            session: 数据库会话
+
+        Returns:
+            cf_clearance 值，不存在时返回 None
+        """
+        value = await self.get_setting(session, "cf_clearance", "")
+        if not value:
+            return None
+        normalized_value = value.strip()
+        return normalized_value or None
+
+    async def set_cf_clearance(self, session: AsyncSession, value: str) -> bool:
+        """
+        保存 Cloudflare 通行 Cookie
+
+        Args:
+            session: 数据库会话
+            value: cf_clearance 值
+
+        Returns:
+            是否保存成功
+        """
+        normalized_value = (value or "").strip()
+        return await self.update_setting(session, "cf_clearance", normalized_value)
+
+    async def get_cf_clearance_status(self, session: AsyncSession) -> Dict[str, Any]:
+        """
+        获取 cf_clearance 配置状态
+
+        Args:
+            session: 数据库会话
+
+        Returns:
+            配置状态字典
+        """
+        result = await session.execute(
+            select(Setting).where(Setting.key == "cf_clearance")
+        )
+        setting = result.scalar_one_or_none()
+
+        if setting and setting.value:
+            self._cache["cf_clearance"] = setting.value
+
+        configured = bool(setting and setting.value and setting.value.strip())
+        updated_at = setting.updated_at.isoformat() if setting and setting.updated_at else None
+
+        return {
+            "configured": configured,
+            "updated_at": updated_at
+        }
 
     async def get_log_level(self, session: AsyncSession) -> str:
         """

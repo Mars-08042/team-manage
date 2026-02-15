@@ -38,6 +38,10 @@ class TeamService:
         """
         error_code = result.get("error_code")
         error_msg = str(result.get("error", "")).lower()
+
+        if error_code == "cloudflare_challenge":
+            logger.warning(f"检测到 Cloudflare 质询拦截，Team {team.id} 暂不调整状态")
+            return True
         
         # 1. 判定是否为“封号/永久失效”类致命错误
         # 明确的错误码匹配

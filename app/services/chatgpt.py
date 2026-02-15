@@ -20,11 +20,36 @@ class ChatGPTService:
     # 重试配置
     MAX_RETRIES = 3
     RETRY_DELAYS = [1, 2, 4]  # 指数退避: 1s, 2s, 4s
+    CF_CHALLENGE_MARKERS = (
+        "_cf_chl_opt",
+        "cf-challenge",
+        "managed challenge",
+        "cf challenge",
+        "cType: 'managed'",
+        'cType: "managed"',
+    )
 
     def __init__(self):
         """初始化 ChatGPT API 服务"""
         self.session: Optional[AsyncSession] = None
         self.proxy: Optional[str] = None
+
+    @staticmethod
+    def _is_cloudflare_challenge(response_text: str) -> bool:
+        """
+        判断响应内容是否为 Cloudflare 托管质询页
+
+        Args:
+            response_text: 响应文本
+
+        Returns:
+            是否为 Cloudflare 质询页
+        """
+        if not response_text:
+            return False
+
+        text = response_text.lower()
+        return any(marker.lower() in text for marker in ChatGPTService.CF_CHALLENGE_MARKERS)
 
     async def _get_proxy_config(self, db_session: DBAsyncSession) -> Optional[str]:
         """
@@ -60,6 +85,20 @@ class ChatGPTService:
             proxies={"http": proxy, "https": proxy} if proxy else None,
             timeout=30
         )
+
+        if db_session is not None:
+            try:
+                cf_clearance = await settings_service.get_cf_clearance(db_session)
+                if cf_clearance:
+                    session.cookies.set(
+                        "cf_clearance",
+                        cf_clearance,
+                        domain=".chatgpt.com",
+                        path="/"
+                    )
+                    logger.info("已注入 cf_clearance Cookie")
+            except Exception as e:
+                logger.warning(f"注入 cf_clearance Cookie 失败: {e}")
 
         logger.info(f"创建 HTTP 会话,代理: {proxy if proxy else '未使用'}")
         return session
@@ -106,6 +145,16 @@ class ChatGPTService:
 
                 status_code = response.status_code
                 logger.info(f"响应状态码: {status_code}")
+
+                if status_code == 403 and self._is_cloudflare_challenge(response.text):
+                    logger.warning("检测到 Cloudflare 托管质询，终止重试并返回 cloudflare_challenge")
+                    return {
+                        "success": False,
+                        "status_code": 403,
+                        "data": None,
+                        "error": "Cloudflare 质询拦截，需要重新过盾",
+                        "error_code": "cloudflare_challenge"
+                    }
 
                 # 2xx 成功
                 if 200 <= status_code < 300:
@@ -544,6 +593,16 @@ class ChatGPTService:
         try:
             response = await self.session.get(url, headers=headers, cookies=cookies)
             status_code = response.status_code
+
+            if status_code == 403 and self._is_cloudflare_challenge(response.text):
+                logger.warning("session_token 刷新被 Cloudflare 托管质询拦截")
+                return {
+                    "success": False,
+                    "status_code": 403,
+                    "error": "Cloudflare 质询拦截，需要重新过盾",
+                    "error_code": "cloudflare_challenge"
+                }
+
             if status_code == 200:
                 data = response.json()
                 access_token = data.get("accessToken")
