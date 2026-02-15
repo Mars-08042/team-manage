@@ -18,6 +18,7 @@ let currentEmail = '';
 let currentCode = '';
 let availableTeams = [];
 let selectedTeamId = null;
+const redeemStepIds = ['step1', 'step2', 'step3'];
 
 // Toast提示函数
 function showToast(message, type = 'info') {
@@ -40,6 +41,54 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
+function hasTabLayout() {
+    return Boolean(
+        document.getElementById('tab-redeem') &&
+        document.getElementById('tab-warranty') &&
+        document.getElementById('warrantyPanel')
+    );
+}
+
+function setActiveTab(tab) {
+    const tabRedeem = document.getElementById('tab-redeem');
+    const tabWarranty = document.getElementById('tab-warranty');
+    if (!tabRedeem || !tabWarranty) return;
+
+    tabRedeem.classList.toggle('active', tab === 'redeem');
+    tabWarranty.classList.toggle('active', tab === 'warranty');
+}
+
+function switchTab(tab) {
+    if (!hasTabLayout()) return;
+
+    const warrantyPanel = document.getElementById('warrantyPanel');
+    if (!warrantyPanel) return;
+
+    if (tab === 'warranty') {
+        redeemStepIds.forEach(id => {
+            const step = document.getElementById(id);
+            if (!step) return;
+            step.classList.remove('active');
+            step.style.display = 'none';
+        });
+        warrantyPanel.style.display = 'block';
+        setActiveTab('warranty');
+    } else {
+        warrantyPanel.style.display = 'none';
+        redeemStepIds.forEach(id => {
+            const step = document.getElementById(id);
+            if (!step) return;
+            step.style.display = '';
+        });
+        showStep(1);
+        setActiveTab('redeem');
+    }
+
+    if (window.lucide) {
+        lucide.createIcons();
+    }
+}
+
 // 切换步骤
 function showStep(stepNumber) {
     document.querySelectorAll('.step').forEach(step => {
@@ -50,43 +99,58 @@ function showStep(stepNumber) {
     if (targetStep) {
         targetStep.classList.add('active');
     }
+
+    if (hasTabLayout()) {
+        const warrantyPanel = document.getElementById('warrantyPanel');
+        if (warrantyPanel) {
+            warrantyPanel.style.display = 'none';
+        }
+        setActiveTab('redeem');
+    }
 }
 
 // 返回步骤1
 function backToStep1() {
-    showStep(1);
     selectedTeamId = null;
+    if (hasTabLayout()) {
+        switchTab('redeem');
+        return;
+    }
+    showStep(1);
 }
 
 // 步骤1: 验证兑换码并直接兑换
-document.getElementById('verifyForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
+const verifyForm = document.getElementById('verifyForm');
+if (verifyForm) {
+    verifyForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
 
-    const email = document.getElementById('email').value.trim();
-    const code = document.getElementById('code').value.trim();
-    const verifyBtn = document.getElementById('verifyBtn');
+        const email = document.getElementById('email').value.trim();
+        const code = document.getElementById('code').value.trim();
+        const verifyBtn = document.getElementById('verifyBtn');
 
-    // 验证
-    if (!email || !code) {
-        showToast('请填写完整信息', 'error');
-        return;
-    }
+        // 验证
+        if (!email || !code) {
+            showToast('请填写完整信息', 'error');
+            return;
+        }
 
-    // 保存到全局变量
-    currentEmail = email;
-    currentCode = code;
+        // 保存到全局变量
+        currentEmail = email;
+        currentCode = code;
 
-    // 禁用按钮
-    verifyBtn.disabled = true;
-    verifyBtn.textContent = '正在兑换...';
+        // 禁用按钮
+        verifyBtn.disabled = true;
+        verifyBtn.textContent = '正在兑换...';
 
-    // 直接调用兑换接口 (team_id = null 表示自动选择)
-    await confirmRedeem(null);
+        // 直接调用兑换接口 (team_id = null 表示自动选择)
+        await confirmRedeem(null);
 
-    // 恢复按钮状态 (如果 confirmRedeem 失败并显示了错误也没关系，因为用户可以点返回重试)
-    verifyBtn.disabled = false;
-    verifyBtn.textContent = '验证兑换码';
-});
+        // 恢复按钮状态 (如果 confirmRedeem 失败并显示了错误也没关系，因为用户可以点返回重试)
+        verifyBtn.disabled = false;
+        verifyBtn.textContent = '验证兑换码';
+    });
+}
 
 // 渲染Team列表
 function renderTeamsList() {
@@ -298,7 +362,9 @@ function formatDate(dateString) {
 
 // 查询质保状态
 async function checkWarranty() {
-    const input = document.getElementById('warrantyInput').value.trim();
+    const inputEl = document.getElementById('warrantyInput');
+    if (!inputEl) return;
+    const input = inputEl.value.trim();
 
     // 验证输入
     if (!input) {
@@ -317,6 +383,7 @@ async function checkWarranty() {
     }
 
     const checkBtn = document.getElementById('checkWarrantyBtn');
+    if (!checkBtn) return;
     checkBtn.disabled = true;
     checkBtn.innerHTML = '<i data-lucide="loader" class="spinning"></i> 查询中...';
     if (window.lucide) lucide.createIcons();
@@ -352,6 +419,7 @@ async function checkWarranty() {
 // 显示质保查询结果
 function showWarrantyResult(data) {
     const warrantyContent = document.getElementById('warrantyContent');
+    if (!warrantyContent) return;
 
     if (!data.records || data.records.length === 0) {
         warrantyContent.innerHTML = `
@@ -484,9 +552,23 @@ function showWarrantyResult(data) {
 
     if (window.lucide) lucide.createIcons();
 
-    // 显示质保结果区域
-    document.querySelectorAll('.step').forEach(step => step.style.display = 'none');
-    document.getElementById('warrantyResult').style.display = 'block';
+    if (hasTabLayout()) {
+        const warrantyPanel = document.getElementById('warrantyPanel');
+        if (warrantyPanel) {
+            warrantyPanel.style.display = 'block';
+        }
+        setActiveTab('warranty');
+        return;
+    }
+
+    // 兼容旧布局：单独结果面板
+    const warrantyResult = document.getElementById('warrantyResult');
+    if (warrantyResult) {
+        document.querySelectorAll('.step').forEach(step => {
+            step.style.display = 'none';
+        });
+        warrantyResult.style.display = 'block';
+    }
 }
 
 // 复制质保兑换码

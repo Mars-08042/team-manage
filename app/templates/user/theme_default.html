@@ -23,6 +23,15 @@
             {% endif %}
         </div>
 
+        <div class="tab-switcher">
+            <button class="tab-btn active" type="button" onclick="switchTab('redeem')" id="tab-redeem">
+                <i data-lucide="gift"></i> 兑换码兑换
+            </button>
+            <button class="tab-btn" type="button" onclick="switchTab('warranty')" id="tab-warranty">
+                <i data-lucide="shield-check"></i> 质保查询
+            </button>
+        </div>
+
         <!-- 步骤1: 输入兑换码 -->
         <div id="step1" class="step active">
             <div class="card">
@@ -43,37 +52,24 @@
                         <i data-lucide="shield-check"></i> 验证兑换码
                     </button>
                 </form>
-
-                <!-- 质保查询区域 -->
-                <div class="warranty-section"
-                    style="margin-top: 40px; padding-top: 30px; border-top: 1px solid var(--border-base);">
-                    <h3 style="font-size: 1.1rem; margin-bottom: 15px; color: var(--text-primary);">
-                        <i data-lucide="shield" style="width: 18px; height: 18px; vertical-align: middle;"></i>
-                        质保查询
-                    </h3>
-                    <p class="form-help" style="margin-bottom: 15px;">
-                        如果您使用质保兑换码加入的 Team 被封号，可以在质保期内（一个月）重复使用原兑换码
-                    </p>
-                    <div class="form-group" style="margin-bottom: 15px;">
-                        <input type="text" id="warrantyInput" placeholder="请输入原兑换码或邮箱进行查询" class="form-input">
-                    </div>
-                    <button type="button" class="btn btn-secondary" id="checkWarrantyBtn" onclick="checkWarranty()"
-                        style="width: 100%;">
-                        <i data-lucide="search"></i> 查询质保状态
-                    </button>
-                </div>
             </div>
         </div>
 
-        <!-- 质保查询结果 -->
-        <div id="warrantyResult" class="step" style="display: none;">
+        <!-- Tab: 质保查询 -->
+        <div id="warrantyPanel" class="warranty-panel" style="display: none;">
             <div class="card">
-                <h2>质保查询结果</h2>
-                <div id="warrantyContent">
-                    <!-- 质保结果将通过JavaScript动态生成 -->
+                <h2>质保查询</h2>
+                <p class="form-help" style="margin-bottom: 1rem;">
+                    输入原兑换码或邮箱，查询质保状态与历史记录。
+                </p>
+                <div class="form-group">
+                    <input type="text" id="warrantyInput" placeholder="请输入原兑换码或邮箱进行查询" class="form-input">
                 </div>
-                <div class="actions" style="margin-top: 20px;">
-                    <button onclick="backToStep1()" class="btn btn-secondary">返回</button>
+                <button type="button" class="btn btn-primary" id="checkWarrantyBtn" onclick="checkWarranty()">
+                    <i data-lucide="search"></i> 查询质保状态
+                </button>
+                <div id="warrantyContent" style="margin-top: 1.25rem;">
+                    <p class="form-help">查询结果将显示在这里。</p>
                 </div>
             </div>
         </div>

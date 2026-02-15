@@ -1282,8 +1282,15 @@ async def update_theme(
 ):
     """更新全站主题"""
     try:
-        await system_settings_service.set_setting("theme", theme)
-        return {"success": True, "theme": theme}
+        normalized_theme = "cny" if theme == "cny" else "default"
+        if theme not in {"cny", "default", "light"}:
+            return JSONResponse(
+                status_code=400,
+                content={"success": False, "error": "不支持的主题类型"}
+            )
+
+        await system_settings_service.set_setting("theme", normalized_theme)
+        return {"success": True, "theme": normalized_theme}
     except Exception as e:
         logger.error(f"更新主题失败: {e}")
         return JSONResponse(

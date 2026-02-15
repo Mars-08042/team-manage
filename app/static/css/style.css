@@ -111,6 +111,56 @@ body {
     letter-spacing: -0.025em;
 }
 
+.navbar-menu {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.navbar-pill,
+.navbar-menu .navbar-pill-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 15px;
+    border-radius: 18px;
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0;
+    white-space: nowrap;
+}
+
+#themeToggleBtn.navbar-pill-btn {
+    background: var(--primary-soft);
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    color: var(--primary);
+}
+
+#themeToggleBtn.navbar-pill-btn:hover {
+    background: #e0e7ff;
+    border-color: rgba(99, 102, 241, 0.45);
+    transform: translateY(-1px);
+}
+
+.navbar-user.navbar-pill {
+    background: var(--bg-main);
+    color: var(--text-main);
+    border: 1px solid var(--border-base);
+}
+
+.navbar-menu .btn-secondary.navbar-pill-btn {
+    background-color: var(--bg-surface);
+    border-color: var(--border-base);
+    color: var(--text-main);
+}
+
+.navbar-menu .btn-secondary.navbar-pill-btn:hover {
+    background-color: var(--bg-main);
+    border-color: var(--text-dim);
+    transform: translateY(-1px);
+}
+
 .main-container {
     display: flex;
     max-width: 1440px;

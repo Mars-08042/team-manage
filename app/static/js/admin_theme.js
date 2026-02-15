@@ -5,14 +5,23 @@
 class ThemeManager {
     constructor() {
         this.themeKey = 'gpt-team-theme';
-        this.currentTheme = localStorage.getItem(this.themeKey) || 'light';
-
-        // Ensure initial state
-        if (this.currentTheme === 'cny') {
-            document.documentElement.setAttribute('data-theme', 'cny');
-        }
+        this.currentTheme = this.resolveInitialTheme();
+        this.applyTheme(this.currentTheme);
+        localStorage.setItem(this.themeKey, this.currentTheme);
 
         this.init();
+    }
+
+    resolveInitialTheme() {
+        const toggleBtn = document.getElementById('themeToggleBtn');
+        const buttonTheme = toggleBtn?.dataset?.currentTheme;
+        const globalTheme = window.__GLOBAL_THEME__;
+        const localTheme = localStorage.getItem(this.themeKey);
+        return this.normalizeTheme(buttonTheme || globalTheme || localTheme);
+    }
+
+    normalizeTheme(theme) {
+        return theme === 'cny' ? 'cny' : 'default';
     }
 
     init() {
@@ -20,18 +29,43 @@ class ThemeManager {
         const toggleBtn = document.getElementById('themeToggleBtn');
         if (toggleBtn) {
             this.updateButtonState(toggleBtn);
-            toggleBtn.addEventListener('click', () => this.toggleTheme());
+            toggleBtn.addEventListener('click', () => {
+                this.toggleTheme();
+            });
         }
     }
 
-    toggleTheme() {
-        this.currentTheme = this.currentTheme === 'light' ? 'cny' : 'light';
-        this.applyTheme(this.currentTheme);
-        localStorage.setItem(this.themeKey, this.currentTheme);
-
+    async toggleTheme() {
         const toggleBtn = document.getElementById('themeToggleBtn');
+        const nextTheme = this.currentTheme === 'cny' ? 'default' : 'cny';
+
         if (toggleBtn) {
-            this.updateButtonState(toggleBtn);
+            toggleBtn.disabled = true;
+        }
+
+        try {
+            await this.persistTheme(nextTheme);
+            this.currentTheme = nextTheme;
+            this.applyTheme(this.currentTheme);
+            localStorage.setItem(this.themeKey, this.currentTheme);
+
+            if (toggleBtn) {
+                toggleBtn.dataset.currentTheme = this.currentTheme;
+                this.updateButtonState(toggleBtn);
+            }
+
+            if (typeof window.showToast === 'function') {
+                const themeName = this.currentTheme === 'cny' ? '新春主题' : '默认主题';
+                window.showToast(`已切换为${themeName}`, 'success');
+            }
+        } catch (error) {
+            if (typeof window.showToast === 'function') {
+                window.showToast(error.message || '主题更新失败', 'error');
+            }
+        } finally {
+            if (toggleBtn) {
+                toggleBtn.disabled = false;
+            }
         }
 
         // Notify CoupletManager to check visibility
@@ -40,8 +74,23 @@ class ThemeManager {
         }
     }
 
+    async persistTheme(theme) {
+        const response = await fetch('/admin/settings/theme', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ theme: theme })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || '主题更新失败');
+        }
+    }
+
     applyTheme(theme) {
-        if (theme === 'cny') {
+        if (this.normalizeTheme(theme) === 'cny') {
             document.documentElement.setAttribute('data-theme', 'cny');
             // Ensure icons are refreshed if changed
             if (window.lucide) window.lucide.createIcons();
@@ -54,13 +103,6 @@ class ThemeManager {
     updateButtonState(btn) {
         // Update button icon or text based on theme
         // Structure expected: <button> <i data-lucide="..."></i> <span>Text</span> </button>
-        const iconSpan = btn.querySelector('i') || btn.querySelector('svg'); // lucide replaces <i> with <svg>
-        const textSpan = btn.querySelector('.theme-text');
-
-        // We need to re-render the icon because lucide replaces the element
-        // Simplest way: update innerHTML of the button to reset structure slightly, or just toggle classes if possible.
-        // But lucide transforms <i> tags. Let's just update the button content safely.
-
         let iconName = this.currentTheme === 'cny' ? 'sun' : 'flower-2';
         // User request: In CNY theme, display "新春主题" (Current State), not "默认主题" (Action)
         let text = this.currentTheme === 'cny' ? '新春主题' : '默认主题';

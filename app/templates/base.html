@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" {% if current_theme|default('default') == 'cny' %}data-theme="cny"{% endif %}>
 
 <head>
     <meta charset="UTF-8">
@@ -29,14 +29,16 @@
             <div class="navbar-menu">
                 <!-- Theme Switcher -->
                 <!-- Theme Switcher Button -->
-                <button id="themeToggleBtn" class="btn btn-minimal" style="margin-right: 15px; padding: 0.5rem 1rem;">
-                    <i data-lucide="flower-2" style="width: 16px; height: 16px; margin-right: 0.5rem;"
-                        class="theme-icon"></i>
-                    <span class="theme-text">新春主题</span>
+                {% set theme_state = current_theme|default('default') %}
+                <button id="themeToggleBtn" class="btn btn-minimal navbar-pill-btn"
+                    data-current-theme="{{ theme_state }}">
+                    <i data-lucide="{{ 'sun' if theme_state == 'cny' else 'flower-2' }}"
+                        style="width: 16px; height: 16px; margin-right: 0.5rem;" class="theme-icon"></i>
+                    <span class="theme-text">{{ '新春主题' if theme_state == 'cny' else '默认主题' }}</span>
                 </button>
 
-                <span class="navbar-user">管理员</span>
-                <button onclick="logout()" class="btn btn-secondary">登出</button>
+                <span class="navbar-user navbar-pill">管理员</span>
+                <button onclick="logout()" class="btn btn-secondary navbar-pill-btn">登出</button>
             </div>
         </div>
     </nav>
@@ -358,6 +360,7 @@
 
     <script src="{{ url_for('static', path='/js/main.js') }}"></script>
     <script>
+        window.__GLOBAL_THEME__ = "{{ current_theme | default('default') }}";
         lucide.createIcons();
 
         // Theme Switcher Logic
