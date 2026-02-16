@@ -29,6 +29,13 @@ class CFClearanceUpdateRequest(BaseModel):
     value: str = Field(..., description="cf_clearance cookie 值")
 
 
+class FlareSolverrConfigUpdateRequest(BaseModel):
+    """FlareSolverr 配置更新请求"""
+    enabled: bool = Field(..., description="是否启用 FlareSolverr 自动过盾")
+    url: str = Field("", description="FlareSolverr 服务地址")
+    refresh_interval_minutes: int = Field(120, description="cf_clearance 刷新间隔（分钟）")
+
+
 @router.get("/teams/{team_id}/refresh")
 async def refresh_team(
     team_id: int,
@@ -66,6 +73,131 @@ async def refresh_team(
             content={
                 "success": False,
                 "error": f"刷新 Team 失败: {str(e)}"
+            }
+        )
+
+
+@router.get("/settings/flaresolverr")
+async def get_flaresolverr_config(
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    获取 FlareSolverr 自动过盾配置
+    """
+    try:
+        from app.services.settings import settings_service
+
+        config = await settings_service.get_flaresolverr_config(db)
+        runtime = await settings_service.get_flaresolverr_runtime_status(db)
+        last_reason = runtime.get("last_trigger_reason") or ""
+        scheduled_failed = (
+            runtime.get("last_status") == "failed"
+            and last_reason.startswith("scheduled")
+        )
+
+        return JSONResponse(
+            content={
+                "success": True,
+                "enabled": config.get("enabled", False),
+                "url": config.get("url", ""),
+                "refresh_interval_minutes": config.get("refresh_interval_minutes", 120),
+                "runtime": runtime,
+                "scheduled_failed": scheduled_failed,
+            }
+        )
+    except Exception as e:
+        logger.error(f"获取 FlareSolverr 配置失败: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "error": f"获取 FlareSolverr 配置失败: {str(e)}"
+            }
+        )
+
+
+@router.put("/settings/flaresolverr")
+async def update_flaresolverr_config(
+    payload: FlareSolverrConfigUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    更新 FlareSolverr 自动过盾配置
+    """
+    try:
+        from app.services.settings import (
+            MAX_CF_REFRESH_INTERVAL_MINUTES,
+            MIN_CF_REFRESH_INTERVAL_MINUTES,
+            settings_service,
+        )
+        from app.services.flaresolverr import flaresolverr_service
+
+        url = (payload.url or "").strip()
+        interval = int(payload.refresh_interval_minutes)
+
+        if payload.enabled:
+            if not url:
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={
+                        "success": False,
+                        "error": "启用 FlareSolverr 时地址不能为空"
+                    }
+                )
+            if not (url.startswith("http://") or url.startswith("https://")):
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={
+                        "success": False,
+                        "error": "FlareSolverr 地址必须以 http:// 或 https:// 开头"
+                    }
+                )
+
+        if interval < MIN_CF_REFRESH_INTERVAL_MINUTES or interval > MAX_CF_REFRESH_INTERVAL_MINUTES:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "error": f"刷新间隔需在 {MIN_CF_REFRESH_INTERVAL_MINUTES}-{MAX_CF_REFRESH_INTERVAL_MINUTES} 分钟之间"
+                }
+            )
+
+        success = await settings_service.update_flaresolverr_config(
+            db,
+            payload.enabled,
+            url,
+            interval,
+        )
+        if not success:
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "success": False,
+                    "error": "保存 FlareSolverr 配置失败"
+                }
+            )
+
+        if payload.enabled:
+            flaresolverr_service.trigger_refresh_in_background(reason="config_updated")
+
+        return JSONResponse(
+            content={
+                "success": True,
+                "message": "FlareSolverr 配置已保存",
+                "enabled": payload.enabled,
+                "url": url,
+                "refresh_interval_minutes": interval,
+            }
+        )
+    except Exception as e:
+        logger.error(f"更新 FlareSolverr 配置失败: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "error": f"更新 FlareSolverr 配置失败: {str(e)}"
             }
         )
 
@@ -170,7 +302,7 @@ async def solve_cf_clearance(
     current_user: dict = Depends(require_admin)
 ):
     """
-    手动触发 Cloudflare 过盾脚本
+    手动触发 Cloudflare 过盾刷新（仅 FlareSolverr）
     """
     try:
         from app.services.cloudflare_solver import cloudflare_solver_service
@@ -184,11 +316,14 @@ async def solve_cf_clearance(
             content=result
         )
     except Exception as e:
-        logger.error(f"执行过盾脚本失败: {e}")
+        logger.error(f"执行过盾刷新失败: {e}")
+        manual_guide = "docs\\cf-clearance-ssh-tunnel-guide.md"
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
                 "success": False,
-                "error": f"执行过盾脚本失败: {str(e)}"
+                "error": f"执行过盾刷新失败: {str(e)}",
+                "manual_guide": manual_guide,
+                "manual_guide_message": f"请按 {manual_guide} 手动处理",
             }
         )

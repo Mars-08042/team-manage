@@ -7,6 +7,17 @@
     <h2>系统设置</h2>
 </div>
 
+<div class="content-section">
+    <div class="section-header section-header-with-link">
+        <h3>Cloudflare 过盾</h3>
+        <a href="/admin/cloudflare" class="btn btn-secondary">
+            <i data-lucide="shield" style="width: 16px; height: 16px;"></i>
+            进入过盾中心
+        </a>
+    </div>
+    <p class="form-help">过盾配置、自动刷新状态和手动兜底入口已迁移到独立页面，方便单独管理。</p>
+</div>
+
 <!-- 代理配置 -->
 <div class="content-section">
     <div class="section-header">
@@ -19,7 +30,7 @@
                 <input type="checkbox" id="proxyEnabled" name="enabled" {% if proxy_enabled %}checked{% endif %}>
                 <span>启用代理</span>
             </label>
-            <p class="form-help">启用后,所有ChatGPT API请求将通过代理服务器</p>
+            <p class="form-help">启用后,所有 ChatGPT API 请求将通过代理服务器。</p>
         </div>
 
         <div class="form-group">
@@ -27,45 +38,10 @@
             <input type="text" id="proxyUrl" name="proxy" value="{{ proxy or '' }}"
                 placeholder="http://127.0.0.1:7890, socks5://127.0.0.1:1080 或 socks5h://127.0.0.1:1080"
                 class="form-control">
-            <p class="form-help">支持HTTP、SOCKS5和SOCKS5H (远程DNS解析) 代理</p>
+            <p class="form-help">支持 HTTP、SOCKS5 和 SOCKS5H (远程 DNS 解析) 代理。</p>
         </div>
 
         <button type="submit" class="btn btn-primary">保存代理配置</button>
-    </form>
-</div>
-
-<!-- Cloudflare 过盾 Cookie -->
-<div class="content-section">
-    <div class="section-header">
-        <h3>Cloudflare 过盾</h3>
-    </div>
-
-    <div class="form-group">
-        <label>当前状态</label>
-        <p id="cfClearanceStatus" class="form-help">
-            {% if cf_clearance_configured %}
-            已设置 {% if cf_clearance_updated_at %}(更新时间: {{ cf_clearance_updated_at }}){% endif %}
-            {% else %}
-            未设置
-            {% endif %}
-        </p>
-        <p class="form-help">当出现 Cloudflare 质询拦截时，可运行 `python solve_cf.py` 自动写入，或手动输入。</p>
-    </div>
-
-    <form id="cfClearanceForm" class="settings-form">
-        <div class="form-group">
-            <label for="cfClearanceValue">cf_clearance</label>
-            <input type="text" id="cfClearanceValue" name="value" class="form-control"
-                placeholder="粘贴 cf_clearance cookie 值">
-            <p class="form-help">保存后会自动重建后端 HTTP 会话。</p>
-        </div>
-
-        <div class="form-actions" style="display: flex; gap: 0.75rem;">
-            <button type="submit" class="btn btn-primary">保存 Cookie</button>
-            <button type="button" id="refreshCfStatusBtn" class="btn btn-secondary">刷新状态</button>
-            <button type="button" id="runCfSolverBtn" class="btn btn-secondary">执行过盾脚本</button>
-        </div>
-        <p class="form-help">执行脚本通常需要 10-60 秒，请耐心等待结果提示。</p>
     </form>
 </div>
 
@@ -95,7 +71,7 @@
         </div>
 
         <button type="submit" class="btn btn-primary">修改密码</button>
-        <p class="form-help">修改密码后需要重新登录</p>
+        <p class="form-help">修改密码后需要重新登录。</p>
     </form>
 </div>
 
@@ -115,7 +91,7 @@
                 <option value="ERROR" {% if log_level=='ERROR' %}selected{% endif %}>ERROR - 错误信息</option>
                 <option value="CRITICAL" {% if log_level=='CRITICAL' %}selected{% endif %}>CRITICAL - 严重错误</option>
             </select>
-            <p class="form-help">调整系统日志的详细程度,DEBUG级别会记录最详细的信息</p>
+            <p class="form-help">调整系统日志详细程度，DEBUG 级别会记录最详细的信息。</p>
         </div>
 
         <button type="submit" class="btn btn-primary">保存日志级别</button>
@@ -125,6 +101,13 @@
 
 {% block extra_css %}
 <style>
+    .section-header-with-link {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
     .checkbox-label {
         display: flex;
         align-items: center;
@@ -150,7 +133,6 @@
         const enabled = document.getElementById('proxyEnabled').checked;
         const proxy = document.getElementById('proxyUrl').value.trim();
 
-        // 验证
         if (enabled && !proxy) {
             showToast('请输入代理地址', 'error');
             return;
@@ -185,7 +167,6 @@
         const newPassword = document.getElementById('newPassword').value;
         const confirmPassword = document.getElementById('confirmPassword').value;
 
-        // 验证
         if (newPassword.length < 6) {
             showToast('新密码至少6位', 'error');
             return;
@@ -249,96 +230,5 @@
             showToast('网络错误', 'error');
         }
     });
-
-    async function refreshCfStatus() {
-        try {
-            const response = await fetch('/api/settings/cf-clearance?include_value=1');
-            const data = await response.json();
-
-            if (!response.ok || !data.success) {
-                showToast(data.error || '获取状态失败', 'error');
-                return;
-            }
-
-            const statusEl = document.getElementById('cfClearanceStatus');
-            if (data.configured) {
-                const updatedText = data.updated_at ? ` (更新时间: ${data.updated_at})` : '';
-                const previewText = data.value_preview ? `，值: ${data.value_preview}` : '';
-                statusEl.textContent = `已设置${updatedText}${previewText}`;
-            } else {
-                statusEl.textContent = '未设置';
-            }
-
-            if (typeof data.value === 'string') {
-                document.getElementById('cfClearanceValue').value = data.value;
-            }
-        } catch (error) {
-            showToast('网络错误', 'error');
-        }
-    }
-
-    document.getElementById('refreshCfStatusBtn').addEventListener('click', async () => {
-        await refreshCfStatus();
-    });
-
-    document.getElementById('runCfSolverBtn').addEventListener('click', async (e) => {
-        const btn = e.currentTarget;
-        const originalText = btn.textContent;
-        btn.disabled = true;
-        btn.textContent = '执行中...';
-
-        try {
-            const response = await fetch('/api/settings/cf-clearance/solve', {
-                method: 'POST'
-            });
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                showToast('过盾脚本执行成功', 'success');
-                await refreshCfStatus();
-            } else {
-                showToast(data.error || '过盾脚本执行失败', 'error');
-            }
-        } catch (error) {
-            showToast('网络错误', 'error');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = originalText;
-        }
-    });
-
-    document.getElementById('cfClearanceForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const value = document.getElementById('cfClearanceValue').value.trim();
-
-        if (!value) {
-            showToast('请输入 cf_clearance', 'error');
-            return;
-        }
-
-        try {
-            const response = await fetch('/api/settings/cf-clearance', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ value })
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                showToast('cf_clearance 已保存', 'success');
-                await refreshCfStatus();
-            } else {
-                showToast(data.error || '保存失败', 'error');
-            }
-        } catch (error) {
-            showToast('网络错误', 'error');
-        }
-    });
-
-    // 页面加载后自动同步一次状态并回填 cf_clearance
-    refreshCfStatus();
 </script>
 {% endblock %}

@@ -16,6 +16,7 @@ class ChatGPTService:
     """ChatGPT API 服务类"""
 
     BASE_URL = "https://chatgpt.com/backend-api"
+    USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
 
     # 重试配置
     MAX_RETRIES = 3
@@ -578,7 +579,7 @@ class ChatGPTService:
         
         headers = {
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "User-Agent": self.USER_AGENT
         }
         
         cookies = {
@@ -666,7 +667,7 @@ class ChatGPTService:
         
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "User-Agent": self.USER_AGENT
         }
         
         logger.info("使用 refresh_token 刷新 access_token")

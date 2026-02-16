@@ -10,6 +10,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_CF_REFRESH_INTERVAL_MINUTES = 120
+MIN_CF_REFRESH_INTERVAL_MINUTES = 30
+MAX_CF_REFRESH_INTERVAL_MINUTES = 1440
+
 
 class SettingsService:
     """系统设置服务类"""
@@ -180,6 +184,111 @@ class SettingsService:
         }
 
         return await self.update_settings(session, settings)
+
+    async def get_flaresolverr_config(self, session: AsyncSession) -> Dict[str, Any]:
+        """
+        获取 FlareSolverr 自动刷新配置
+
+        Returns:
+            FlareSolverr 配置字典
+        """
+        enabled_raw = await self.get_setting(session, "flaresolverr_enabled", "false")
+        url_raw = await self.get_setting(session, "flaresolverr_url", "")
+        interval_raw = await self.get_setting(
+            session,
+            "cf_clearance_refresh_interval",
+            str(DEFAULT_CF_REFRESH_INTERVAL_MINUTES),
+        )
+
+        try:
+            interval_minutes = int(str(interval_raw).strip() or DEFAULT_CF_REFRESH_INTERVAL_MINUTES)
+        except Exception:
+            interval_minutes = DEFAULT_CF_REFRESH_INTERVAL_MINUTES
+
+        interval_minutes = max(
+            MIN_CF_REFRESH_INTERVAL_MINUTES,
+            min(MAX_CF_REFRESH_INTERVAL_MINUTES, interval_minutes),
+        )
+
+        return {
+            "enabled": str(enabled_raw).lower() == "true",
+            "url": (url_raw or "").strip(),
+            "refresh_interval_minutes": interval_minutes,
+        }
+
+    async def update_flaresolverr_config(
+        self,
+        session: AsyncSession,
+        enabled: bool,
+        url: str,
+        refresh_interval_minutes: int,
+    ) -> bool:
+        """
+        更新 FlareSolverr 自动刷新配置
+
+        Args:
+            session: 数据库会话
+            enabled: 是否启用 FlareSolverr 自动刷新
+            url: FlareSolverr 服务地址
+            refresh_interval_minutes: 刷新间隔（分钟）
+
+        Returns:
+            是否更新成功
+        """
+        normalized_interval = max(
+            MIN_CF_REFRESH_INTERVAL_MINUTES,
+            min(MAX_CF_REFRESH_INTERVAL_MINUTES, int(refresh_interval_minutes)),
+        )
+
+        settings = {
+            "flaresolverr_enabled": str(enabled).lower(),
+            "flaresolverr_url": (url or "").strip(),
+            "cf_clearance_refresh_interval": str(normalized_interval),
+        }
+        return await self.update_settings(session, settings)
+
+    async def get_flaresolverr_runtime_status(self, session: AsyncSession) -> Dict[str, Optional[str]]:
+        """
+        获取 FlareSolverr 运行状态（最近一次刷新结果）
+
+        Returns:
+            运行状态字典
+        """
+        last_status = await self.get_setting(session, "flaresolverr_last_status", "idle")
+        last_error = await self.get_setting(session, "flaresolverr_last_error", "")
+        last_attempt_at = await self.get_setting(session, "flaresolverr_last_attempt_at", "")
+        last_success_at = await self.get_setting(session, "flaresolverr_last_success_at", "")
+        last_trigger_reason = await self.get_setting(session, "flaresolverr_last_trigger_reason", "")
+
+        return {
+            "last_status": (last_status or "idle").strip() or "idle",
+            "last_error": (last_error or "").strip() or None,
+            "last_attempt_at": (last_attempt_at or "").strip() or None,
+            "last_success_at": (last_success_at or "").strip() or None,
+            "last_trigger_reason": (last_trigger_reason or "").strip() or None,
+        }
+
+    async def set_flaresolverr_runtime_status(
+        self,
+        session: AsyncSession,
+        *,
+        status: str,
+        trigger_reason: str,
+        attempt_at: str,
+        error: str = "",
+        success_at: str = "",
+    ) -> bool:
+        """
+        更新 FlareSolverr 运行状态（最近一次刷新结果）
+        """
+        payload = {
+            "flaresolverr_last_status": (status or "idle").strip() or "idle",
+            "flaresolverr_last_error": (error or "").strip(),
+            "flaresolverr_last_attempt_at": (attempt_at or "").strip(),
+            "flaresolverr_last_success_at": (success_at or "").strip(),
+            "flaresolverr_last_trigger_reason": (trigger_reason or "").strip(),
+        }
+        return await self.update_settings(session, payload)
 
     async def get_cf_clearance(self, session: AsyncSession) -> Optional[str]:
         """

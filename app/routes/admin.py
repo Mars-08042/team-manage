@@ -1141,7 +1141,6 @@ async def settings_page(
         # 获取当前配置
         proxy_config = await settings_service.get_proxy_config(db)
         log_level = await settings_service.get_log_level(db)
-        cf_clearance_status = await settings_service.get_cf_clearance_status(db)
 
         return templates.TemplateResponse(
             "admin/settings/index.html",
@@ -1151,11 +1150,7 @@ async def settings_page(
                 "active_page": "settings",
                 "proxy_enabled": proxy_config["enabled"],
                 "proxy": proxy_config["proxy"],
-                "proxy_enabled": proxy_config["enabled"],
-                "proxy": proxy_config["proxy"],
                 "log_level": log_level,
-                "cf_clearance_configured": cf_clearance_status.get("configured", False),
-                "cf_clearance_updated_at": cf_clearance_status.get("updated_at"),
                 "current_theme": current_theme
             }
         )
@@ -1165,6 +1160,59 @@ async def settings_page(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"获取系统设置失败: {str(e)}"
+        )
+
+
+@router.get("/cloudflare", response_class=HTMLResponse)
+async def cloudflare_page(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Cloudflare 过盾配置页面
+
+    Args:
+        request: FastAPI Request 对象
+        db: 数据库会话
+        current_user: 当前用户（需要登录）
+
+    Returns:
+        Cloudflare 过盾页面 HTML
+    """
+    try:
+        from app.main import templates
+        from app.services.settings import settings_service
+
+        logger.info("管理员访问 Cloudflare 过盾页面")
+
+        current_theme = await system_settings_service.get_setting("theme", "default")
+        cf_clearance_status = await settings_service.get_cf_clearance_status(db)
+        flaresolverr_config = await settings_service.get_flaresolverr_config(db)
+
+        return templates.TemplateResponse(
+            "admin/cloudflare/index.html",
+            {
+                "request": request,
+                "user": current_user,
+                "active_page": "cloudflare",
+                "cf_clearance_configured": cf_clearance_status.get("configured", False),
+                "cf_clearance_updated_at": cf_clearance_status.get("updated_at"),
+                "flaresolverr_enabled": flaresolverr_config.get("enabled", False),
+                "flaresolverr_url": flaresolverr_config.get("url", ""),
+                "cf_clearance_refresh_interval": flaresolverr_config.get(
+                    "refresh_interval_minutes",
+                    120,
+                ),
+                "current_theme": current_theme
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"获取 Cloudflare 过盾配置失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"获取 Cloudflare 过盾配置失败: {str(e)}"
         )
 
 

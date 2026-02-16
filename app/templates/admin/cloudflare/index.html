@@ -1,0 +1,424 @@
+{% extends "base.html" %}
+
+{% block title %}Cloudflare 过盾 - GPT Team 管理系统{% endblock %}
+
+{% block content %}
+<div class="page-header cf-page-header">
+    <div>
+        <h2>Cloudflare 过盾</h2>
+        <p class="form-help cf-page-subtitle">
+            这里集中管理 FlareSolverr 自动刷新与手动兜底。
+            右上角按钮会一直显示，方便你随时手动触发本地 FlareSolverr。
+        </p>
+    </div>
+    <button type="button" id="retryFlaresolverrBtn" class="btn btn-secondary">
+        <i data-lucide="refresh-cw" style="width: 16px; height: 16px;"></i>
+        手动触发 FlareSolverr
+    </button>
+</div>
+
+<div class="cf-grid">
+    <div class="content-section cf-status-card">
+        <div class="section-header">
+            <h3>当前状态</h3>
+            <span id="cfStateBadge"
+                class="status-badge {% if cf_clearance_configured %}status-active{% else %}status-warning{% endif %}">
+                {% if cf_clearance_configured %}已配置{% else %}未配置{% endif %}
+            </span>
+        </div>
+        <p id="cfClearanceStatus" class="cf-status-text">
+            {% if cf_clearance_configured %}
+            已设置{% if cf_clearance_updated_at %} (更新时间: {{ cf_clearance_updated_at }}){% endif %}
+            {% else %}
+            未设置
+            {% endif %}
+        </p>
+        <p class="form-help">自动任务失败时可直接点击右上角按钮重试，若仍失败请按下方提示手动处理。</p>
+        <p id="flaresolverrFailureHint" class="form-help flaresolverr-failure-hint" style="display: none;"></p>
+    </div>
+
+    <div class="content-section">
+        <div class="section-header">
+            <h3>自动刷新配置</h3>
+        </div>
+
+        <form id="flaresolverrForm" class="settings-form">
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="flaresolverrEnabled" name="enabled" {% if flaresolverr_enabled %}checked{% endif %}>
+                    <span>启用 FlareSolverr 自动过盾</span>
+                </label>
+                <p class="form-help">启用后，系统会按间隔自动刷新 <code>cf_clearance</code>，并在检测到质询时触发后台刷新。</p>
+            </div>
+
+            <div class="form-group">
+                <label for="flaresolverrUrl">FlareSolverr 地址</label>
+                <input type="text" id="flaresolverrUrl" name="url" value="{{ flaresolverr_url or '' }}"
+                    placeholder="http://127.0.0.1:8191/v1.request"
+                    class="form-control">
+                <p class="form-help">支持 <code>/v1</code> 与 <code>/v1.request</code>；系统会自动进行兼容重试。</p>
+            </div>
+
+            <div class="form-group">
+                <label for="cfRefreshIntervalMinutes">自动刷新间隔（分钟）</label>
+                <input type="number" id="cfRefreshIntervalMinutes" name="refresh_interval_minutes"
+                    value="{{ cf_clearance_refresh_interval or 120 }}" min="30" max="1440" step="1"
+                    class="form-control">
+                <p class="form-help">推荐 120-240 分钟。</p>
+            </div>
+
+            <button type="submit" class="btn btn-primary">保存 FlareSolverr 配置</button>
+        </form>
+    </div>
+</div>
+
+<div class="content-section cf-manual-card">
+    <div class="section-header">
+        <h3>手动 Cookie 兜底</h3>
+    </div>
+    <p class="form-help cf-manual-tip">
+        如果本地电脑离线或 Docker 未运行，自动刷新和手动触发都可能失败。此时可手动填入 <code>cf_clearance</code>，
+        仍失败则按 <code>docs\cf-clearance-ssh-tunnel-guide.md</code> 执行 SSH 隧道方案。
+    </p>
+
+    <form id="cfClearanceForm" class="settings-form">
+        <div class="form-group">
+            <label for="cfClearanceValue">cf_clearance</label>
+            <input type="text" id="cfClearanceValue" name="value" class="form-control"
+                placeholder="粘贴 cf_clearance cookie 值">
+            <p class="form-help">保存后会自动重建后端 HTTP 会话。</p>
+        </div>
+
+        <div class="form-actions cf-form-actions">
+            <button type="submit" class="btn btn-primary">保存 Cookie</button>
+            <button type="button" id="refreshCfStatusBtn" class="btn btn-secondary">刷新状态</button>
+        </div>
+        <p class="form-help">这里是紧急兜底入口，不影响 FlareSolverr 自动刷新任务配置。</p>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .cf-page-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .cf-page-subtitle {
+        margin-top: 0.5rem;
+        max-width: 760px;
+    }
+
+    .cf-grid {
+        display: grid;
+        grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.4fr);
+        gap: 1.25rem;
+    }
+
+    .cf-status-card {
+        background: linear-gradient(180deg, rgba(99, 102, 241, 0.07), rgba(99, 102, 241, 0.02) 45%, var(--bg-surface));
+    }
+
+    .cf-status-text {
+        font-size: 0.95rem;
+        color: var(--text-main);
+        margin-bottom: 0.5rem;
+    }
+
+    .cf-manual-card {
+        margin-top: 0.5rem;
+    }
+
+    .cf-manual-tip {
+        margin-bottom: 1rem;
+    }
+
+    .cf-form-actions {
+        display: flex;
+        gap: 0.75rem;
+        margin-bottom: 0.375rem;
+        flex-wrap: wrap;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .form-help {
+        font-size: 0.8125rem;
+        color: var(--text-muted);
+        margin-top: 0.375rem;
+    }
+
+    .flaresolverr-failure-hint {
+        color: #b45309;
+        background: rgba(245, 158, 11, 0.1);
+        border: 1px solid rgba(245, 158, 11, 0.35);
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+    }
+
+    @media (max-width: 960px) {
+        .cf-page-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .cf-grid {
+            grid-template-columns: 1fr;
+        }
+
+        #retryFlaresolverrBtn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const MANUAL_GUIDE_PATH = 'docs\\cf-clearance-ssh-tunnel-guide.md';
+    const FLARESOLVERR_INTERVAL_MIN = 30;
+    const FLARESOLVERR_INTERVAL_MAX = 1440;
+    const retryFlaresolverrBtn = document.getElementById('retryFlaresolverrBtn');
+    const flaresolverrFailureHint = document.getElementById('flaresolverrFailureHint');
+    const cfStateBadge = document.getElementById('cfStateBadge');
+
+    function updateCfStateBadge(configured) {
+        if (!cfStateBadge) {
+            return;
+        }
+        cfStateBadge.classList.remove('status-active', 'status-warning');
+        if (configured) {
+            cfStateBadge.textContent = '已配置';
+            cfStateBadge.classList.add('status-active');
+        } else {
+            cfStateBadge.textContent = '未配置';
+            cfStateBadge.classList.add('status-warning');
+        }
+    }
+
+    function applyFlaresolverrConfig(config) {
+        if (typeof config.enabled === 'boolean') {
+            document.getElementById('flaresolverrEnabled').checked = config.enabled;
+        }
+        if (typeof config.url === 'string') {
+            document.getElementById('flaresolverrUrl').value = config.url;
+        }
+        if (typeof config.refresh_interval_minutes === 'number') {
+            document.getElementById('cfRefreshIntervalMinutes').value = config.refresh_interval_minutes;
+        }
+    }
+
+    function showManualGuideHint(message) {
+        if (!flaresolverrFailureHint) {
+            return;
+        }
+        flaresolverrFailureHint.textContent = message;
+        flaresolverrFailureHint.style.display = 'block';
+    }
+
+    function hideManualGuideHint() {
+        if (!flaresolverrFailureHint) {
+            return;
+        }
+        flaresolverrFailureHint.textContent = '';
+        flaresolverrFailureHint.style.display = 'none';
+    }
+
+    function updateScheduledFailureState(data) {
+        const runtime = data.runtime || {};
+        const scheduledFailed = Boolean(data.scheduled_failed);
+
+        if (scheduledFailed) {
+            const err = runtime.last_error || '自动刷新请求失败';
+            showManualGuideHint(`自动刷新失败：${err}。请点击右上角按钮重试；若仍失败，请按 ${MANUAL_GUIDE_PATH} 手动处理。`);
+        } else {
+            hideManualGuideHint();
+        }
+    }
+
+    async function triggerManualFlaresolverr(buttonEl) {
+        if (!buttonEl) {
+            return;
+        }
+        const originalHtml = buttonEl.innerHTML;
+        buttonEl.disabled = true;
+        buttonEl.textContent = '触发中...';
+
+        try {
+            const response = await fetch('/api/settings/cf-clearance/solve', {
+                method: 'POST'
+            });
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                showToast(data.message || 'FlareSolverr 手动触发成功', 'success');
+                hideManualGuideHint();
+                await refreshCfStatus();
+                await refreshFlaresolverrConfig(false);
+            } else {
+                const err = data.error || 'FlareSolverr 手动触发失败';
+                showToast(`${err}，请按 ${MANUAL_GUIDE_PATH} 手动处理`, 'error');
+                showManualGuideHint(`${err}。请按 ${MANUAL_GUIDE_PATH} 手动处理。`);
+                await refreshFlaresolverrConfig(false);
+            }
+        } catch (error) {
+            showToast(`网络错误，请按 ${MANUAL_GUIDE_PATH} 手动处理`, 'error');
+            showManualGuideHint(`网络错误，无法触发手动刷新。请按 ${MANUAL_GUIDE_PATH} 手动处理。`);
+        } finally {
+            buttonEl.disabled = false;
+            buttonEl.innerHTML = originalHtml;
+        }
+    }
+
+    if (retryFlaresolverrBtn) {
+        retryFlaresolverrBtn.addEventListener('click', async () => {
+            await triggerManualFlaresolverr(retryFlaresolverrBtn);
+        });
+    }
+
+    async function refreshFlaresolverrConfig(showErrorToast = true) {
+        try {
+            const response = await fetch('/api/settings/flaresolverr');
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                if (showErrorToast) {
+                    showToast(data.error || '获取 FlareSolverr 配置失败', 'error');
+                }
+                return;
+            }
+
+            applyFlaresolverrConfig(data);
+            updateScheduledFailureState(data);
+        } catch (error) {
+            if (showErrorToast) {
+                showToast('网络错误', 'error');
+            }
+        }
+    }
+
+    document.getElementById('flaresolverrForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const enabled = document.getElementById('flaresolverrEnabled').checked;
+        const url = document.getElementById('flaresolverrUrl').value.trim();
+        const refreshIntervalMinutes = Number(document.getElementById('cfRefreshIntervalMinutes').value);
+
+        if (enabled && !url) {
+            showToast('启用 FlareSolverr 时地址不能为空', 'error');
+            return;
+        }
+        if (url && !/^https?:\/\//i.test(url)) {
+            showToast('FlareSolverr 地址必须以 http:// 或 https:// 开头', 'error');
+            return;
+        }
+        if (!Number.isFinite(refreshIntervalMinutes)
+            || refreshIntervalMinutes < FLARESOLVERR_INTERVAL_MIN
+            || refreshIntervalMinutes > FLARESOLVERR_INTERVAL_MAX) {
+            showToast(`刷新间隔需在 ${FLARESOLVERR_INTERVAL_MIN}-${FLARESOLVERR_INTERVAL_MAX} 分钟之间`, 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/settings/flaresolverr', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    enabled,
+                    url,
+                    refresh_interval_minutes: refreshIntervalMinutes
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok && data.success) {
+                showToast('FlareSolverr 配置已保存', 'success');
+                await refreshFlaresolverrConfig(false);
+            } else {
+                showToast(data.error || '保存失败', 'error');
+            }
+        } catch (error) {
+            showToast('网络错误', 'error');
+        }
+    });
+
+    async function refreshCfStatus() {
+        try {
+            const response = await fetch('/api/settings/cf-clearance?include_value=1');
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                showToast(data.error || '获取状态失败', 'error');
+                return;
+            }
+
+            const statusEl = document.getElementById('cfClearanceStatus');
+            if (data.configured) {
+                const updatedText = data.updated_at ? ` (更新时间: ${data.updated_at})` : '';
+                const previewText = data.value_preview ? `，值: ${data.value_preview}` : '';
+                statusEl.textContent = `已设置${updatedText}${previewText}`;
+            } else {
+                statusEl.textContent = '未设置';
+            }
+
+            updateCfStateBadge(Boolean(data.configured));
+
+            if (typeof data.value === 'string') {
+                document.getElementById('cfClearanceValue').value = data.value;
+            }
+        } catch (error) {
+            showToast('网络错误', 'error');
+        }
+    }
+
+    document.getElementById('refreshCfStatusBtn').addEventListener('click', async () => {
+        await refreshCfStatus();
+    });
+
+    document.getElementById('cfClearanceForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const value = document.getElementById('cfClearanceValue').value.trim();
+
+        if (!value) {
+            showToast('请输入 cf_clearance', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/settings/cf-clearance', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ value })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                showToast('cf_clearance 已保存', 'success');
+                await refreshCfStatus();
+            } else {
+                showToast(data.error || '保存失败', 'error');
+            }
+        } catch (error) {
+            showToast('网络错误', 'error');
+        }
+    });
+
+    refreshCfStatus();
+    refreshFlaresolverrConfig(false);
+</script>
+{% endblock %}

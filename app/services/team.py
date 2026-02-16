@@ -41,6 +41,16 @@ class TeamService:
 
         if error_code == "cloudflare_challenge":
             logger.warning(f"检测到 Cloudflare 质询拦截，Team {team.id} 暂不调整状态")
+            try:
+                from app.services.flaresolverr import flaresolverr_service
+
+                triggered = flaresolverr_service.trigger_refresh_in_background(
+                    reason=f"cloudflare_challenge_team_{team.id}"
+                )
+                if triggered:
+                    logger.info("已触发 FlareSolverr 后台刷新任务")
+            except Exception as e:
+                logger.warning(f"触发 FlareSolverr 后台刷新失败: {e}")
             return True
         
         # 1. 判定是否为“封号/永久失效”类致命错误

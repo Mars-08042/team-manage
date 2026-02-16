@@ -17,6 +17,7 @@ from app.routes import redeem, auth, admin, api, user, warranty
 from app.config import settings
 from app.database import init_db, close_db, AsyncSessionLocal
 from app.services.auth import auth_service
+from app.tasks.cf_refresh import start_cf_refresh_task, stop_cf_refresh_task
 
 # 获取项目根目录
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -46,13 +47,17 @@ async def lifespan(app: FastAPI):
         # 3. 初始化管理员密码（如果不存在）
         async with AsyncSessionLocal() as session:
             await auth_service.initialize_admin_password(session)
+
+        # 4. 启动 cf_clearance 自动刷新任务
+        await start_cf_refresh_task()
         logger.info("数据库初始化完成")
     except Exception as e:
         logger.error(f"数据库初始化失败: {e}")
     
     yield
     
-    # 关闭连接
+    # 停止后台任务并关闭连接
+    await stop_cf_refresh_task()
     await close_db()
     logger.info("系统正在关闭，已释放数据库连接")
 
