@@ -121,12 +121,14 @@
             <div class="modal-body">
                 <div class="modal-tabs">
                     <button class="modal-tab-btn active"
+                        onclick="switchModalTab('importTeamModal', 'fileImport')">文件导入</button>
+                    <button class="modal-tab-btn"
                         onclick="switchModalTab('importTeamModal', 'singleImport')">单个导入</button>
                     <button class="modal-tab-btn"
                         onclick="switchModalTab('importTeamModal', 'batchImport')">批量导入</button>
                 </div>
 
-                <div id="singleImport" class="import-panel">
+                <div id="singleImport" class="import-panel" style="display: none;">
                     <form id="singleImportForm" onsubmit="handleSingleImport(event)">
                         <div class="form-group">
                             <label>Access Token (AT) <span class="required">*</span></label>
@@ -198,6 +200,63 @@
                             <div id="batchResults"></div>
                         </div>
                         <button type="submit" class="btn btn-primary">批量导入</button>
+                    </form>
+                </div>
+
+                <div id="fileImport" class="import-panel">
+                    <form id="fileImportForm" onsubmit="handleFileImport(event)">
+                        <div class="form-group">
+                            <label>JSON 文件 <span class="required">*</span></label>
+                            <input id="fileImportInput" type="file" name="importFiles" accept=".json,application/json"
+                                multiple style="display: none;">
+                            <div id="fileImportDropzone"
+                                style="border: 1px dashed var(--border-base); border-radius: var(--radius-md); padding: 1.25rem; text-align: center; cursor: pointer; background: rgba(255,255,255,0.02); transition: var(--transition-fast);">
+                                <strong style="display: block; margin-bottom: 0.35rem;">点击或拖拽上传 JSON 文件</strong>
+                                <small id="fileImportSelectedSummary" class="form-text"
+                                    style="margin: 0;">支持多选文件，至少包含 access_token 字段</small>
+                            </div>
+                            <small class="form-text">支持扁平结构，或从 tokens / credentials 对象中提取字段。</small>
+                        </div>
+                        <div id="fileImportProgressContainer" style="display: none; margin-bottom: 1.5rem;">
+                            <div class="progress-info"
+                                style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.875rem;">
+                                <span id="fileImportProgressStage">准备导入...</span>
+                                <span id="fileImportProgressPercent">0%</span>
+                            </div>
+                            <div
+                                style="width: 100%; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;">
+                                <div id="fileImportProgressBar"
+                                    style="width: 0%; height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent)); transition: width 0.3s ease;">
+                                </div>
+                            </div>
+                            <div
+                                style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-dim); display: flex; gap: 1rem;">
+                                <span>当前文件: <span id="fileImportCurrentFile">-</span></span>
+                                <span>成功: <span id="fileImportSuccessCount" class="text-success">0</span></span>
+                                <span>失败: <span id="fileImportFailedCount" class="text-danger">0</span></span>
+                            </div>
+                        </div>
+                        <div id="fileImportResultsContainer" style="display: none; margin-bottom: 1rem;">
+                            <div
+                                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                <h4 style="margin: 0;">处理结果</h4>
+                                <small id="fileImportFinalSummary" class="text-muted"></small>
+                            </div>
+                            <div style="max-height: 260px; overflow-y: auto;">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>文件名</th>
+                                            <th>邮箱</th>
+                                            <th>状态</th>
+                                            <th>消息</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="fileImportResultsBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">文件导入</button>
                     </form>
                 </div>
             </div>

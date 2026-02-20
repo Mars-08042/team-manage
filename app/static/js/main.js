@@ -95,6 +95,8 @@ function confirmAction(message) {
 document.addEventListener('DOMContentLoaded', function () {
     // 检查认证状态
     checkAuthStatus();
+    // 初始化文件导入交互
+    initFileImportArea();
 });
 
 // 检查认证状态
@@ -171,6 +173,295 @@ function toggleWarrantyDays(checkbox, targetId) {
 }
 
 // === Team 导入逻辑 ===
+
+let fileImportSelectedFiles = [];
+
+function updateFileImportDropzoneStyle(dropzone, isDragging) {
+    if (!dropzone) return;
+    if (isDragging) {
+        dropzone.style.borderColor = 'var(--primary)';
+        dropzone.style.background = 'rgba(59, 130, 246, 0.08)';
+        return;
+    }
+    dropzone.style.borderColor = 'var(--border-base)';
+    dropzone.style.background = 'rgba(255,255,255,0.02)';
+}
+
+function updateFileImportSummary(files, summaryEl) {
+    if (!summaryEl) return;
+    if (!files.length) {
+        summaryEl.textContent = '支持多选文件，至少包含 access_token 字段';
+        return;
+    }
+    if (files.length === 1) {
+        summaryEl.textContent = `已选择 1 个文件: ${files[0].name}`;
+        return;
+    }
+    if (files.length <= 3) {
+        summaryEl.textContent = `已选择 ${files.length} 个文件: ${files.map(file => file.name).join('，')}`;
+        return;
+    }
+    summaryEl.textContent = `已选择 ${files.length} 个文件: ${files[0].name}，${files[1].name}，...`;
+}
+
+function initFileImportArea() {
+    const dropzone = document.getElementById('fileImportDropzone');
+    const fileInput = document.getElementById('fileImportInput');
+    const summaryEl = document.getElementById('fileImportSelectedSummary');
+    if (!dropzone || !fileInput || !summaryEl) return;
+
+    const setSelectedFiles = (files) => {
+        fileImportSelectedFiles = files.filter(file => file);
+        updateFileImportSummary(fileImportSelectedFiles, summaryEl);
+    };
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+        setSelectedFiles(Array.from(fileInput.files || []));
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            updateFileImportDropzoneStyle(dropzone, true);
+        });
+    });
+
+    ['dragleave', 'dragend', 'drop'].forEach(eventName => {
+        dropzone.addEventListener(eventName, (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            updateFileImportDropzoneStyle(dropzone, false);
+        });
+    });
+
+    dropzone.addEventListener('drop', (event) => {
+        const droppedFiles = Array.from((event.dataTransfer && event.dataTransfer.files) || []);
+        setSelectedFiles(droppedFiles);
+
+        if (typeof DataTransfer !== 'undefined') {
+            const transfer = new DataTransfer();
+            droppedFiles.forEach(file => transfer.items.add(file));
+            fileInput.files = transfer.files;
+        } else {
+            fileInput.value = '';
+        }
+    });
+
+    updateFileImportDropzoneStyle(dropzone, false);
+    updateFileImportSummary(fileImportSelectedFiles, summaryEl);
+}
+
+function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('文件读取失败'));
+        reader.readAsText(file, 'utf-8');
+    });
+}
+
+function extractFileImportPayload(parsedJson) {
+    if (!parsedJson || typeof parsedJson !== 'object' || Array.isArray(parsedJson)) {
+        throw new Error('文件格式错误');
+    }
+
+    const fieldContainers = [parsedJson];
+    if (parsedJson.tokens && typeof parsedJson.tokens === 'object') {
+        fieldContainers.push(parsedJson.tokens);
+    }
+    if (parsedJson.credentials && typeof parsedJson.credentials === 'object') {
+        fieldContainers.push(parsedJson.credentials);
+    }
+
+    const readField = (aliases) => {
+        for (const container of fieldContainers) {
+            for (const alias of aliases) {
+                const value = container[alias];
+                if (typeof value === 'string' && value.trim()) {
+                    return value.trim();
+                }
+            }
+        }
+        return null;
+    };
+
+    const payload = {
+        access_token: readField(['access_token', 'accessToken']),
+        refresh_token: readField(['refresh_token', 'refreshToken']),
+        session_token: readField(['session_token', 'sessionToken']),
+        client_id: readField(['client_id', 'clientId']),
+        email: readField(['email']),
+        account_id: readField(['account_id', 'accountId'])
+    };
+
+    if (!payload.access_token) {
+        throw new Error('缺少 access_token');
+    }
+
+    return payload;
+}
+
+function appendFileImportResultRow(resultsBody, detail) {
+    const row = document.createElement('tr');
+
+    const fileCell = document.createElement('td');
+    fileCell.textContent = detail.fileName || '-';
+
+    const emailCell = document.createElement('td');
+    emailCell.textContent = detail.email || '-';
+
+    const statusCell = document.createElement('td');
+    statusCell.className = detail.success ? 'text-success' : 'text-danger';
+    statusCell.textContent = detail.success ? '成功' : '失败';
+
+    const messageCell = document.createElement('td');
+    messageCell.textContent = detail.message || (detail.success ? '导入成功' : '导入失败');
+
+    row.appendChild(fileCell);
+    row.appendChild(emailCell);
+    row.appendChild(statusCell);
+    row.appendChild(messageCell);
+
+    resultsBody.insertBefore(row, resultsBody.firstChild);
+}
+
+async function handleFileImport(event) {
+    event.preventDefault();
+    const form = event.target;
+    const fileInput = document.getElementById('fileImportInput');
+    const files = (fileImportSelectedFiles.length > 0
+        ? fileImportSelectedFiles
+        : Array.from((fileInput && fileInput.files) || [])).filter(file => file);
+
+    if (files.length === 0) {
+        showToast('请先选择 JSON 文件', 'warning');
+        return;
+    }
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    const progressContainer = document.getElementById('fileImportProgressContainer');
+    const progressBar = document.getElementById('fileImportProgressBar');
+    const progressStage = document.getElementById('fileImportProgressStage');
+    const progressPercent = document.getElementById('fileImportProgressPercent');
+    const currentFileEl = document.getElementById('fileImportCurrentFile');
+    const successCountEl = document.getElementById('fileImportSuccessCount');
+    const failedCountEl = document.getElementById('fileImportFailedCount');
+    const resultsContainer = document.getElementById('fileImportResultsContainer');
+    const resultsBody = document.getElementById('fileImportResultsBody');
+    const finalSummaryEl = document.getElementById('fileImportFinalSummary');
+
+    if (!submitButton || !progressContainer || !progressBar || !progressStage || !progressPercent ||
+        !currentFileEl || !successCountEl || !failedCountEl || !resultsContainer || !resultsBody || !finalSummaryEl) {
+        showToast('文件导入组件未正确初始化', 'error');
+        return;
+    }
+
+    progressContainer.style.display = 'block';
+    resultsContainer.style.display = 'block';
+    progressBar.style.width = '0%';
+    progressStage.textContent = '准备导入...';
+    progressPercent.textContent = '0%';
+    currentFileEl.textContent = '-';
+    successCountEl.textContent = '0';
+    failedCountEl.textContent = '0';
+    finalSummaryEl.textContent = '';
+    resultsBody.innerHTML = '';
+
+    let successCount = 0;
+    let failedCount = 0;
+    const originalText = submitButton.textContent;
+    submitButton.disabled = true;
+    submitButton.textContent = '处理中...';
+
+    try {
+        for (let index = 0; index < files.length; index += 1) {
+            const file = files[index];
+            let extractedEmail = '-';
+            progressStage.textContent = `处理中 ${index + 1}/${files.length}...`;
+            currentFileEl.textContent = file.name;
+
+            try {
+                const rawText = await readFileAsText(file);
+                let parsedJson;
+                try {
+                    parsedJson = JSON.parse(rawText);
+                } catch (parseError) {
+                    throw new Error('文件格式错误');
+                }
+
+                const payload = extractFileImportPayload(parsedJson);
+                extractedEmail = payload.email || '-';
+
+                const result = await apiCall('/admin/teams/import', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        import_type: 'single',
+                        access_token: payload.access_token,
+                        refresh_token: payload.refresh_token || null,
+                        session_token: payload.session_token || null,
+                        client_id: payload.client_id || null,
+                        email: payload.email || null,
+                        account_id: payload.account_id || null
+                    })
+                });
+
+                const importSuccess = result.success && (!result.data || result.data.success !== false);
+                if (importSuccess) {
+                    successCount += 1;
+                    appendFileImportResultRow(resultsBody, {
+                        fileName: file.name,
+                        email: extractedEmail,
+                        success: true,
+                        message: (result.data && (result.data.message || result.data.detail)) || '导入成功'
+                    });
+                } else {
+                    failedCount += 1;
+                    appendFileImportResultRow(resultsBody, {
+                        fileName: file.name,
+                        email: extractedEmail,
+                        success: false,
+                        message: result.error || (result.data && (result.data.error || result.data.message)) || '导入失败'
+                    });
+                }
+            } catch (error) {
+                failedCount += 1;
+                appendFileImportResultRow(resultsBody, {
+                    fileName: file.name,
+                    email: extractedEmail,
+                    success: false,
+                    message: error.message || '处理失败'
+                });
+            }
+
+            const percent = Math.round(((index + 1) / files.length) * 100);
+            progressBar.style.width = `${percent}%`;
+            progressPercent.textContent = `${percent}%`;
+            successCountEl.textContent = String(successCount);
+            failedCountEl.textContent = String(failedCount);
+        }
+
+        progressStage.textContent = '处理完成';
+        progressBar.style.width = '100%';
+        progressPercent.textContent = '100%';
+        currentFileEl.textContent = '-';
+        finalSummaryEl.textContent = `总文件: ${files.length} | 成功: ${successCount} | 失败: ${failedCount}`;
+
+        if (failedCount === 0) {
+            showToast(`文件导入完成，成功 ${successCount} 个`, 'success');
+        } else {
+            showToast(`文件导入完成，成功 ${successCount} 个，失败 ${failedCount} 个`, 'warning');
+        }
+
+        if (successCount > 0) {
+            setTimeout(() => location.reload(), 3000);
+        }
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = originalText;
+    }
+}
 
 async function handleSingleImport(event) {
     event.preventDefault();
